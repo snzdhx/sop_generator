@@ -196,7 +196,7 @@ export default function SopForm({ id, onClose }) {
             <div className="grid">
               <div className="field"><label>Simbol alur</label>
                 <select value={s.simbol || ''} onChange={(e) => setStep(i, { simbol: e.target.value })}>
-                  <option value="">Otomatis (langkah pertama = Mulai, terakhir = Selesai)</option>
+                  <option value="">Otomatis (awal = Mulai, akhir = Selesai, kata "persetujuan" = Keputusan)</option>
                   <option value="proses">Proses (kotak)</option>
                   <option value="mulai">Mulai (oval)</option>
                   <option value="selesai">Selesai (oval)</option>

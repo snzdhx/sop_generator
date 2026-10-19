@@ -22,11 +22,12 @@ class FlowchartLayout
     private const SYM_W_MAX = 1000;
     private const SYM_H = 520;
     private const DIA_H = 680;
-    private const PAD = 150;         // jarak simbol ke tepi atas/bawah baris
+    private const PAD = 260;         // jarak simbol ke tepi atas/bawah baris (ruang bus gabung/pisah)
     private const TOP_BAND = 300;    // ruang tambahan di baris pertama tiap halaman
     private const BOTTOM_BAND = 420; // ruang di bawah baris terakhir tiap halaman
     private const PAGE_H = 10306;    // tinggi konten A4 landscape (11906 - 2 x 800)
-    private const BUS_GAP = 110;
+    private const BUS_GAP = 200;     // jarak bus 'pisah' di atas simbol tujuan
+    private const JOIN_GAP = 200;    // jarak bus 'gabung' di bawah simbol asal
     private const CONN_W = 246;
     private const CONN_H = 268;
     private const FONT_PT = 10;
@@ -188,6 +189,8 @@ class FlowchartLayout
                     $sim = 'mulai';
                 } elseif ($cnt > 1 && $i === $cnt - 1) {
                     $sim = 'selesai';
+                } elseif (preg_match('/persetujuan|menyetujui|memutuskan|verifikasi|memverifikasi|menolak/iu', (string) ($st['kegiatan'] ?? ''))) {
+                    $sim = 'keputusan';   // langkah pengambilan keputusan dikenali dari katanya
                 } else {
                     $sim = 'proses';
                 }
@@ -510,10 +513,92 @@ class FlowchartLayout
             if (!$this->hasSym($st)) {
                 continue;
             }
-            foreach ($this->targets($i) as $k => $t) {
-                $this->connect($i, $t, $st['simbol'] === 'keputusan' && $k >= 1, $k);
+            $tg = $this->targets($i);
+            foreach ($tg as $k => $t) {
+                $branch = $st['simbol'] === 'keputusan' && $k >= 1;
+                if (!$branch && $this->trunk($i, $t, count($tg))) {
+                    continue;
+                }
+                $this->connect($i, $t, $branch, $k, count($tg));
             }
         }
+    }
+
+    /**
+     * Pola gabung-pisah dengan satu batang (seperti Word asli): kotak-kotak pelaksana digabung oleh bus
+     * di bawahnya, satu batang turun ke langkah berikutnya, lalu dipisah lagi oleh bus ke tiap kotak.
+     * Mengembalikan false jika kolom batang bertabrakan dengan simbol lain (dipakai rute jalur samping).
+     */
+    private function trunk(int $i, int $t, int $ntg): bool
+    {
+        $st = $this->steps[$i];
+        $SA = $st['pelaksana'];
+        $SB = $this->steps[$t]['pelaksana'];
+        $pA = $this->rows[$i]['page'];
+        $pB = $this->rows[$t]['page'];
+        $yA = $this->symBot($i);
+        $yBt = $this->symTop($t);
+        $yJoin = $yA + self::JOIN_GAP;
+        $yFork = $yBt - self::BUS_GAP;
+
+        if (count($SA) === 1) {
+            $tc = $SA[0];
+        } elseif (count($SB) === 1) {
+            $tc = $SB[0];
+        } else {
+            $all = array_merge($SA, $SB);
+            $sum = 0;
+            foreach ($all as $c) {
+                $sum += $this->cx[$c];
+            }
+            $mean = $sum / count($all);
+            $common = array_values(array_intersect($SA, $SB)) ?: $SA;
+            $tc = $common[0];
+            $best = PHP_FLOAT_MAX;
+            foreach ($common as $c) {
+                $d = abs($this->cx[$c] - $mean);
+                if ($d < $best) {
+                    $best = $d;
+                    $tc = $c;
+                }
+            }
+        }
+        if ($this->collides($tc, $i, $t)) {
+            return false;
+        }
+
+        $tx = $this->cx[$tc];
+        $join = count($SA) > 1 || $tx !== $this->cx[$SA[0]];
+        $fork = count($SB) > 1 || $tx !== $this->cx[$SB[0]];
+
+        $y0 = $yA;
+        if ($join) {
+            $xsA = [$tx];
+            foreach ($SA as $s) {
+                $this->vline($this->cx[$s], $pA, $yA, $pA, $yJoin, false);
+                $xsA[] = $this->cx[$s];
+            }
+            $this->hline($pA, min($xsA), max($xsA), $yJoin);
+            $y0 = $yJoin;
+        }
+        if ($fork) {
+            $this->vline($tx, $pA, $y0, $pB, $yFork, false);
+            $xsB = [$tx];
+            foreach ($SB as $c) {
+                $xsB[] = $this->cx[$c];
+            }
+            $this->hline($pB, min($xsB), max($xsB), $yFork);
+            foreach ($SB as $c) {
+                $this->vline($this->cx[$c], $pB, $yFork, $pB, $yBt, true);
+            }
+        } else {
+            $this->vline($tx, $pA, $y0, $pB, $yBt, true);
+        }
+        if ($st['simbol'] === 'keputusan' && $ntg > 1) {
+            $this->add($pA, $this->cx[$SA[0]] + 40, $yA + 10, 420, 200, 'label', 'Ya');
+        }
+
+        return true;
     }
 
     private function symbol(int $i, int $col): void
@@ -552,7 +637,7 @@ class FlowchartLayout
         return $best;
     }
 
-    private function connect(int $i, int $t, bool $side, int $label): void
+    private function connect(int $i, int $t, bool $side, int $label, int $ntg = 1): void
     {
         $st = $this->steps[$i];
         $tg = $this->steps[$t];
@@ -615,7 +700,7 @@ class FlowchartLayout
             }
             $this->hline($pB, min($xs), max($xs), $ybus);
         }
-        if ($isDec && $label === 0 && !$side) {
+        if ($isDec && $label === 0 && !$side && $ntg > 1) {
             $this->add($pA, $this->cx[$SA[0]] + 40, $yA + 10, 420, 200, 'label', 'Ya');
         }
     }
