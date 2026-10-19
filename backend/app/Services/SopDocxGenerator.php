@@ -13,12 +13,11 @@ use PhpOffice\PhpWord\Style\Table as TableStyle;
 
 /**
  * Membuat file .docx SOP dari data model Sop.
- * Halaman 1 (header + informasi): A4 portrait. Halaman prosedur: A4 landscape.
+ * Semua halaman (informasi + prosedur) memakai ukuran yang sama: A4 landscape.
  */
 class SopDocxGenerator
 {
-    private const TOTAL_PORTRAIT  = 10300; // lebar konten halaman informasi (A4 portrait, twips)
-    private const TOTAL_LANDSCAPE = 15600; // lebar konten tabel prosedur (A4 landscape, twips)
+    private const TOTAL_WIDTH = 15600; // lebar konten semua tabel (A4 landscape, margin kiri/kanan 600, twips)
     private const FONT  = ['name' => 'Arial', 'size' => 10];
     private const GRAY  = 'D9D9D9';
 
@@ -32,21 +31,8 @@ class SopDocxGenerator
         $word->setDefaultFontSize(10);
         $word->setDefaultParagraphStyle(['spaceAfter' => 0, 'spaceBefore' => 0]);
 
-        // Section 1: portrait
-        $portrait = $word->addSection([
-            'pageSizeW' => 11906,
-            'pageSizeH' => 16838,
-            'marginTop' => 800,
-            'marginBottom' => 800,
-            'marginLeft' => 800,
-            'marginRight' => 800,
-        ]);
-        $this->header($portrait, $sop);
-        $portrait->addText('', ['size' => 4]);
-        $this->info($portrait, $sop);
-
-        // Section 2: landscape (otomatis mulai halaman baru)
-        $landscape = $word->addSection([
+        // Ukuran & margin halaman 1 sama persis dengan halaman prosedur
+        $pageSetup = [
             'orientation' => 'landscape',
             'pageSizeW' => 16838,
             'pageSizeH' => 11906,
@@ -54,8 +40,17 @@ class SopDocxGenerator
             'marginBottom' => 800,
             'marginLeft' => 600,
             'marginRight' => 600,
-        ]);
-        $markers = $this->flowchart($landscape, $sop);
+        ];
+
+        // Section 1: header + informasi
+        $first = $word->addSection($pageSetup);
+        $this->header($first, $sop);
+        $first->addText('', ['size' => 4]);
+        $this->info($first, $sop);
+
+        // Section 2: prosedur (otomatis mulai halaman baru)
+        $second = $word->addSection($pageSetup);
+        $markers = $this->flowchart($second, $sop);
 
         $path = sys_get_temp_dir() . '/' . Str::uuid() . '.docx';
         IOFactory::createWriter($word, 'Word2007')->save($path);
@@ -94,10 +89,10 @@ class SopDocxGenerator
     // ---------- Tabel 1: header ----------
     private function header($section, Sop $sop): void
     {
-        $table = $this->table($section, self::TOTAL_PORTRAIT);
-        $colL = 4300;
-        $colLabel = 2200;
-        $colVal = self::TOTAL_PORTRAIT - $colL - $colLabel;
+        $table = $this->table($section, self::TOTAL_WIDTH);
+        $colL = 5000;
+        $colLabel = 2800;
+        $colVal = self::TOTAL_WIDTH - $colL - $colLabel;
 
         $fmt = fn($d) => $d ? $d->locale('id')->translatedFormat('d F Y') : '';
 
@@ -144,8 +139,8 @@ class SopDocxGenerator
     // ---------- Tabel 2: dasar hukum, kualifikasi, dst ----------
     private function info($section, Sop $sop): void
     {
-        $table = $this->table($section, self::TOTAL_PORTRAIT);
-        $half = intdiv(self::TOTAL_PORTRAIT, 2);
+        $table = $this->table($section, self::TOTAL_WIDTH);
+        $half = intdiv(self::TOTAL_WIDTH, 2);
 
         $pairs = [
             [['Dasar Hukum:', $sop->dasar_hukum], ['Kualifikasi Pelaksana:', $sop->kualifikasi]],
@@ -179,12 +174,12 @@ class SopDocxGenerator
         $steps = array_values($sop->steps ?? []);
 
         // Tinggi baris, pembagian halaman, dan bentuk/panah dihitung di FlowchartLayout
-        $L = new FlowchartLayout($pelaksana, $steps, self::TOTAL_LANDSCAPE);
+        $L = new FlowchartLayout($pelaksana, $steps, self::TOTAL_WIDTH);
         $n = $L->n;
         [$wNo, $wKeg, $wSyr, $wWkt, $wOut, $wKet, $wPel] = [$L->wNo, $L->wKeg, $L->wSyr, $L->wWkt, $L->wOut, $L->wKet, $L->wPel];
         $wMutu = $wSyr + $wWkt + $wOut + $wKet;
 
-        $table = $this->table($section, self::TOTAL_LANDSCAPE);
+        $table = $this->table($section, self::TOTAL_WIDTH);
         $head = $this->cell(['bgColor' => self::GRAY, 'valign' => 'center']);
         $bold = ['bold' => true];
 
