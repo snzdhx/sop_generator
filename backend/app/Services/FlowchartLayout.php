@@ -28,7 +28,11 @@ class FlowchartLayout
     private const PAGE_H = 10640;    // tinggi konten halaman landscape 20160 x 12240 (12240 - 2 x 800)
     private const BUS_GAP = 120;    // jarak bus pembagi ke atas simbol tujuan
     private const MERGE_GAP = 120;  // jarak bus pengumpul ke bawah simbol sumber
-    private const JOIN_GAP = 120;   // jarak bus gabung (pola batang) ke bawah simbol sumber
+    private const JOIN_GAP = 120;   // jarak minimum bus gabung (pola batang) ke bawah simbol sumber
+    private const JOIN_FRAC = 0.27; // jarak bus gabung = 27% jarak antar simbol (seperti dokumen Word asli)
+    private const FORK_FRAC = 0.33; // jarak bus pembagi ke atas simbol tujuan = 33% jarak antar simbol
+    /** Dokumen asli: pada pola gabung-pisah hanya simbol terluar (kiri & kanan) yang disambung ke bus gabung. */
+    private const JOIN_OUTER_ONLY = true;
     private const CONN_W = 246;
     private const CONN_H = 268;
     private const FONT_PT = 10;
@@ -537,9 +541,15 @@ class FlowchartLayout
     }
 
     /**
-     * Pola gabung-pisah dengan satu batang (seperti Word asli): kotak-kotak pelaksana digabung oleh bus
-     * di bawahnya, satu batang turun ke langkah berikutnya, lalu dipisah lagi oleh bus ke tiap kotak.
-     * Mengembalikan false jika kolom batang bertabrakan dengan simbol lain (dipakai rute jalur samping).
+     * Pola gabung-pisah dengan satu batang (seperti Word asli).
+     *
+     * Pola dokumen asli (tujuan > 1 simbol, sumber bukan keputusan):
+     *  - batang berada di TITIK TENGAH simbol-simbol terluar (bukan di bawah salah satu kotak),
+     *  - sumber tunggal keluar dari sisi simbolnya, menekuk horizontal ke batang, lalu turun,
+     *  - sumber banyak: hanya simbol paling kiri & kanan yang turun ke bus gabung,
+     *  - batang berujung panah di bus pembagi, bus pembagi memanah ke tiap kotak tujuan.
+     * Kasus lain (tujuan tunggal / sumber keputusan) memakai pola lama.
+     * Mengembalikan false jika batang bertabrakan dengan simbol lain (dipakai rute jalur samping).
      */
     private function trunk(int $i, int $t, int $ntg): bool
     {
@@ -550,12 +560,64 @@ class FlowchartLayout
         $pB = $this->rows[$t]['page'];
         $yA = $this->symBot($i);
         $yBt = $this->symTop($t);
-        $yJoin = $yA + self::JOIN_GAP;
-        $yFork = $yBt - self::BUS_GAP;
+        $isDec = $st['simbol'] === 'keputusan';
+        $nA = count($SA);
+        $nB = count($SB);
 
-        if (count($SA) === 1) {
+        // Jarak bus proporsional terhadap jarak antar simbol (sama dengan proporsi di Word asli)
+        $gapJ = self::JOIN_GAP;
+        $gapF = self::BUS_GAP;
+        if ($pA === $pB && $yBt > $yA) {
+            $span = $yBt - $yA;
+            $gapJ = max(self::JOIN_GAP, min(420, (int) round($span * self::JOIN_FRAC)));
+            $gapF = max(self::BUS_GAP, min(500, (int) round($span * self::FORK_FRAC)));
+        }
+        $yJoin = $yA + $gapJ;
+        $yFork = $yBt - $gapF;
+
+        // ---------- Pola Word asli: banyak tujuan ----------
+        if (!$isDec && $nB > 1) {
+            $xsA = array_map(fn($c) => $this->cx[$c], $SA);
+            $xsB = array_map(fn($c) => $this->cx[$c], $SB);
+            $ext = $nA > 1 ? array_merge($xsA, $xsB) : $xsB;
+            $tx = intdiv(min($ext) + max($ext), 2);
+            if ($this->collidesX($tx, $i, $t)) {
+                return false;
+            }
+
+            if ($nA > 1) {
+                $join = $nA > 1 ? (self::JOIN_OUTER_ONLY ? [min($xsA), max($xsA)] : $xsA) : [];
+                foreach (array_unique($join) as $x) {
+                    $this->vline($x, $pA, $yA, $pA, $yJoin, false);
+                }
+                $this->hline($pA, min(array_merge($xsA, [$tx])), max(array_merge($xsA, [$tx])), $yJoin);
+                $y0 = $yJoin;
+            } else {
+                $sx = $xsA[0];
+                $half = intdiv($this->symW, 2);
+                if (abs($sx - $tx) <= $half - 50) {
+                    $y0 = $yA;                      // batang masih di bawah simbol sumber
+                } else {
+                    $ymid = $this->symTop($i) + intdiv($this->symHOf($i), 2);
+                    $edge = $tx > $sx ? $sx + $half : $sx - $half;
+                    $this->hline($pA, $edge, $tx, $ymid);   // keluar dari sisi simbol, menekuk ke batang
+                    $y0 = $ymid;
+                }
+            }
+
+            $this->vline($tx, $pA, $y0, $pB, $yFork, true);
+            $this->hline($pB, min(array_merge($xsB, [$tx])), max(array_merge($xsB, [$tx])), $yFork);
+            foreach ($xsB as $x) {
+                $this->vline($x, $pB, $yFork, $pB, $yBt, true);
+            }
+
+            return true;
+        }
+
+        // ---------- Pola lama: tujuan tunggal / sumber keputusan ----------
+        if ($nA === 1) {
             $tc = $SA[0];
-        } elseif (count($SB) === 1) {
+        } elseif ($nB === 1) {
             $tc = $SB[0];
         } else {
             $all = array_merge($SA, $SB);
@@ -580,8 +642,8 @@ class FlowchartLayout
         }
 
         $tx = $this->cx[$tc];
-        $join = count($SA) > 1 || $tx !== $this->cx[$SA[0]];
-        $fork = count($SB) > 1 || $tx !== $this->cx[$SB[0]];
+        $join = $nA > 1 || $tx !== $this->cx[$SA[0]];
+        $fork = $nB > 1 || $tx !== $this->cx[$SB[0]];
 
         $y0 = $yA;
         if ($join) {
@@ -594,7 +656,7 @@ class FlowchartLayout
             $y0 = $yJoin;
         }
         if ($fork) {
-            $this->vline($tx, $pA, $y0, $pB, $yFork, false);
+            $this->vline($tx, $pA, $y0, $pB, $yFork, true);
             $xsB = [$tx];
             foreach ($SB as $c) {
                 $xsB[] = $this->cx[$c];
@@ -606,11 +668,25 @@ class FlowchartLayout
         } else {
             $this->vline($tx, $pA, $y0, $pB, $yBt, true);
         }
-        if ($st['simbol'] === 'keputusan' && $ntg > 1) {
+        if ($isDec && $ntg > 1) {
             $this->add($pA, $this->cx[$SA[0]] + 40, $yA + 10, 420, 200, 'label', 'Ya');
         }
 
         return true;
+    }
+
+    /** Apakah garis vertikal di posisi X melewati simbol pada baris di antara $i dan $t. */
+    private function collidesX(int $x, int $i, int $t): bool
+    {
+        for ($r = $i + 1; $r < $t; $r++) {
+            foreach ($this->steps[$r]['pelaksana'] as $c) {
+                if (abs($this->cx[$c] - $x) < intdiv($this->symW, 2) + 60) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     private function symbol(int $i, int $col): void
