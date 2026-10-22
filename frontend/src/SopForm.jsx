@@ -1,7 +1,49 @@
 import { useEffect, useRef, useState } from 'react'
 import { api } from './api'
 
-const emptyStep = () => ({ kegiatan: '', pelaksana: [], simbol: '', lanjut: '', persyaratan: '', waktu: '', output: '', keterangan: '' })
+const emptyStep = () => ({ kegiatan: '', pelaksana: [], simbol: 'proses', lanjut: '', persyaratan: '', waktu: '', output: '', keterangan: '' })
+
+// Pilihan simbol alur: ditampilkan sebagai gambar bentuk (sama dengan bentuk di dokumen Word)
+const SYMBOLS = [
+  { value: 'proses', label: 'Proses', hint: 'Kotak' },
+  { value: 'mulai', label: 'Mulai', hint: 'Oval' },
+  { value: 'selesai', label: 'Selesai', hint: 'Oval' },
+  { value: 'keputusan', label: 'Keputusan', hint: 'Belah ketupat' },
+]
+
+function SymbolShape({ type }) {
+  const common = { fill: '#fff', stroke: '#111827', strokeWidth: 1.6 }
+  return (
+    <svg viewBox="0 0 64 40" width="64" height="40" aria-hidden="true">
+      {type === 'proses' && <rect x="6" y="8" width="52" height="24" {...common} />}
+      {(type === 'mulai' || type === 'selesai') && <rect x="6" y="8" width="52" height="24" rx="12" {...common} />}
+      {type === 'keputusan' && <polygon points="32,3 60,20 32,37 4,20" {...common} />}
+      {type === 'mulai' && <polygon points="28,15 28,25 37,20" fill="#111827" />}
+      {type === 'selesai' && <rect x="27" y="15" width="10" height="10" fill="#111827" />}
+    </svg>
+  )
+}
+
+function SymbolPicker({ value, onChange }) {
+  return (
+    <div className="symbols" role="radiogroup" aria-label="Simbol alur">
+      {SYMBOLS.map((s) => (
+        <button
+          type="button"
+          key={s.value}
+          role="radio"
+          aria-checked={value === s.value}
+          className={`symbol${value === s.value ? ' selected' : ''}`}
+          onClick={() => onChange(s.value)}
+          title={`${s.label} (${s.hint})`}
+        >
+          <SymbolShape type={s.value} />
+          <span>{s.label}</span>
+        </button>
+      ))}
+    </div>
+  )
+}
 
 const empty = {
   instansi: 'BADAN KEPEGAWAIAN DAN PENGEMBANGAN SUMBER DAYA MANUSIA KOTA YOGYAKARTA',
@@ -123,10 +165,11 @@ export default function SopForm({ id, onClose }) {
         dasar_hukum: norm(d.dasar_hukum), kualifikasi: norm(d.kualifikasi),
         keterkaitan: norm(d.keterkaitan), peralatan: norm(d.peralatan),
         pelaksana: d.pelaksana?.length ? d.pelaksana : ['Pelaksana 1'],
-        steps: d.steps?.length ? d.steps : [emptyStep()],
+        // Data lama yang simbolnya kosong (dulu "otomatis") dianggap Proses
+        steps: d.steps?.length ? d.steps.map((s) => ({ ...s, simbol: s.simbol || 'proses' })) : [emptyStep()],
       })
       setLoading(false)
-    })
+    }).catch((e) => { setError(e.message); setLoading(false) })
   }, [id])
 
   const up = (k) => (e) => setF({ ...f, [k]: e.target.value })
@@ -150,7 +193,7 @@ export default function SopForm({ id, onClose }) {
 
   const toggle = (i, p) => {
     const cur = f.steps[i].pelaksana
-    setStep(i, { pelaksana: cur.includes(p) ? cur.filter((x) => x !== p) : [...cur, p].sort() })
+    setStep(i, { pelaksana: cur.includes(p) ? cur.filter((x) => x !== p) : [...cur, p].sort((a, b) => a - b) })
   }
 
   const move = (i, dir) => {
@@ -255,13 +298,7 @@ export default function SopForm({ id, onClose }) {
                 </div>
                 <div className="grid">
                   <div className="field"><label>Simbol alur</label>
-                    <select value={s.simbol || ''} onChange={(e) => setStep(i, { simbol: e.target.value })}>
-                      <option value="">Otomatis (awal = Mulai, akhir = Selesai, kata "persetujuan" = Keputusan)</option>
-                      <option value="proses">Proses (kotak)</option>
-                      <option value="mulai">Mulai (oval)</option>
-                      <option value="selesai">Selesai (oval)</option>
-                      <option value="keputusan">Keputusan (belah ketupat)</option>
-                    </select></div>
+                    <SymbolPicker value={s.simbol || 'proses'} onChange={(v) => setStep(i, { simbol: v })} /></div>
                   <div className="field"><label>Lanjut ke langkah nomor</label>
                     <input placeholder="Kosong = langkah berikutnya" value={s.lanjut || ''}
                       onChange={(e) => setStep(i, { lanjut: e.target.value })} />

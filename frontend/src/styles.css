@@ -26,6 +26,11 @@ button:disabled { opacity: .5; cursor: wait; }
 .list { width: 100%; border-collapse: collapse; background: #fff; margin-top: 16px; }
 .list th, .list td { text-align: left; padding: 10px; border-bottom: 1px solid #e5e7eb; }
 .actions { display: flex; gap: 6px; justify-content: flex-end; }
+.symbols { display: flex; flex-wrap: wrap; gap: 8px; }
+.symbol { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 6px 10px; min-width: 84px; background: #fff; border: 2px solid #e5e7eb; }
+.symbol:hover { border-color: #93c5fd; }
+.symbol.selected { border-color: #2563eb; background: #eff6ff; }
+.symbol span { font-size: 12px; font-weight: 600; }
 .muted { color: #6b7280; font-size: 13px; }
 .error { color: #b91c1c; white-space: pre-wrap; }
 

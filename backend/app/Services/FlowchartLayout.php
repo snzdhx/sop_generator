@@ -28,6 +28,7 @@ class FlowchartLayout
     private const PAGE_H = 10640;    // tinggi konten halaman landscape 20160 x 12240 (12240 - 2 x 800)
     private const BUS_GAP = 120;    // jarak bus pembagi ke atas simbol tujuan
     private const MERGE_GAP = 120;  // jarak bus pengumpul ke bawah simbol sumber
+    private const JOIN_GAP = 120;   // jarak bus gabung (pola batang) ke bawah simbol sumber
     private const CONN_W = 246;
     private const CONN_H = 268;
     private const FONT_PT = 10;
@@ -198,20 +199,13 @@ class FlowchartLayout
     private function normalizeSteps(array $steps): void
     {
         $steps = array_values($steps);
-        $cnt = count($steps);
-        foreach ($steps as $i => $st) {
+        foreach ($steps as $st) {
             $st = (array) $st;
+            // Simbol ditentukan pengguna secara eksplisit; tidak ada deteksi otomatis.
+            // Nilai kosong/tidak dikenal dianggap "proses" (kotak).
             $sim = (string) ($st['simbol'] ?? '');
             if (!in_array($sim, ['proses', 'mulai', 'selesai', 'keputusan'], true)) {
-                if ($cnt > 1 && $i === 0) {
-                    $sim = 'mulai';
-                } elseif ($cnt > 1 && $i === $cnt - 1) {
-                    $sim = 'selesai';
-                } elseif (preg_match('/persetujuan|menyetujui|memutuskan|verifikasi|memverifikasi|menolak/iu', (string) ($st['kegiatan'] ?? ''))) {
-                    $sim = 'keputusan';   // langkah pengambilan keputusan dikenali dari katanya
-                } else {
-                    $sim = 'proses';
-                }
+                $sim = 'proses';
             }
             $cols = [];
             foreach ((array) ($st['pelaksana'] ?? []) as $c) {
