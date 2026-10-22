@@ -32,8 +32,21 @@ class SopDocxGenerator
         $word->setDefaultFontSize(10);
         $word->setDefaultParagraphStyle(['spaceAfter' => 0, 'spaceBefore' => 0]);
 
-        // Ukuran & margin halaman 1 sama persis dengan halaman prosedur
-        $pageSetup = [
+        // Section 1: portrait
+        $portrait = $word->addSection([
+            'pageSizeW' => 11906,
+            'pageSizeH' => 16838,
+            'marginTop' => 800,
+            'marginBottom' => 800,
+            'marginLeft' => 800,
+            'marginRight' => 800,
+        ]);
+        $this->header($portrait, $sop);
+        $portrait->addText('', ['size' => 4]);
+        $this->info($portrait, $sop);
+
+        // Section 2: landscape (otomatis mulai halaman baru)
+        $landscape = $word->addSection([
             'orientation' => 'landscape',
             'pageSizeW' => 20160,
             'pageSizeH' => 12240,
@@ -81,10 +94,10 @@ class SopDocxGenerator
     // ---------- Tabel 1: header ----------
     private function header($section, Sop $sop): void
     {
-        $table = $this->table($section, self::TOTAL_WIDTH);
-        $colL = 5000;
-        $colLabel = 2800;
-        $colVal = self::TOTAL_WIDTH - $colL - $colLabel;
+        $table = $this->table($section, self::TOTAL_PORTRAIT);
+        $colL = 4300;
+        $colLabel = 2200;
+        $colVal = self::TOTAL_PORTRAIT - $colL - $colLabel;
 
         $fmt = fn($d) => $d ? $d->locale('id')->translatedFormat('d F Y') : '';
 
@@ -131,8 +144,8 @@ class SopDocxGenerator
     // ---------- Tabel 2: dasar hukum, kualifikasi, dst ----------
     private function info($section, Sop $sop): void
     {
-        $table = $this->table($section, self::TOTAL_WIDTH);
-        $half = intdiv(self::TOTAL_WIDTH, 2);
+        $table = $this->table($section, self::TOTAL_PORTRAIT);
+        $half = intdiv(self::TOTAL_PORTRAIT, 2);
 
         $pairs = [
             [['Dasar Hukum:', $sop->dasar_hukum], ['Kualifikasi Pelaksana:', $sop->kualifikasi]],
@@ -166,13 +179,13 @@ class SopDocxGenerator
         $steps = array_values($sop->steps ?? []);
 
         // Tinggi baris, pembagian halaman, dan bentuk/panah dihitung di FlowchartLayout
-        $L = new FlowchartLayout($pelaksana, $steps, self::TOTAL_WIDTH);
+        $L = new FlowchartLayout($pelaksana, $steps, self::TOTAL_LANDSCAPE);
         $n = $L->n;
         [$wNo, $wKeg, $wSyr, $wWkt, $wOut, $wKet] = [$L->wNo, $L->wKeg, $L->wSyr, $L->wWkt, $L->wOut, $L->wKet];
         $pw = $L->pw;
         $wMutu = $wSyr + $wWkt + $wOut + $wKet;
 
-        $table = $this->table($section, self::TOTAL_WIDTH);
+        $table = $this->table($section, self::TOTAL_LANDSCAPE);
         $head = $this->cell(['bgColor' => self::GRAY, 'valign' => 'center']);
         $bold = ['bold' => true];
 
