@@ -843,7 +843,7 @@ class FlowchartLayout
                 }
             }
 
-            $this->vline($tx, $pA, $y0, $pB, $yFork, true);
+            $this->vline($tx, $pA, $y0, $pB, $yFork, false); // tanpa panah: panah ada di tiap kotak tujuan
             $this->hline($pB, min(array_merge($xsB, [$tx])), max(array_merge($xsB, [$tx])), $yFork);
             foreach ($xsB as $x) {
                 $this->vline($x, $pB, $yFork, $pB, $yBt, true);
@@ -1093,7 +1093,7 @@ class FlowchartLayout
 
             return;
         }
-        $this->vline($xt, $pA, $ym, $pB, $ybus, true);
+        $this->vline($xt, $pA, $ym, $pB, $ybus, false);
         $this->hline($pB, min(array_merge($xsB, [$xt])), max(array_merge($xsB, [$xt])), $ybus);
         foreach ($xsB as $x) {
             $this->vline($x, $pB, $ybus, $pB, $yBt, true);
