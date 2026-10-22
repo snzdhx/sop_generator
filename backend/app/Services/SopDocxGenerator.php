@@ -13,12 +13,12 @@ use PhpOffice\PhpWord\Style\Table as TableStyle;
 
 /**
  * Membuat file .docx SOP dari data model Sop.
- * Halaman 1 (header + informasi): A4 portrait. Halaman prosedur: A4 landscape.
+ * Halaman 1 (header + informasi): A4 portrait. Halaman prosedur: landscape 20160 x 12240 twips (sama dengan dokumen asli).
  */
 class SopDocxGenerator
 {
     private const TOTAL_PORTRAIT  = 10300; // lebar konten halaman informasi (A4 portrait, twips)
-    private const TOTAL_LANDSCAPE = 15600; // lebar konten tabel prosedur (A4 landscape, twips)
+    private const TOTAL_LANDSCAPE = 18715; // sama dengan tabel prosedur dokumen asli // lebar konten tabel prosedur (A4 landscape, twips)
     private const FONT  = ['name' => 'Arial', 'size' => 10];
     private const GRAY  = 'D9D9D9';
 
@@ -48,12 +48,12 @@ class SopDocxGenerator
         // Section 2: landscape (otomatis mulai halaman baru)
         $landscape = $word->addSection([
             'orientation' => 'landscape',
-            'pageSizeW' => 16838,
-            'pageSizeH' => 11906,
+            'pageSizeW' => 20160,
+            'pageSizeH' => 12240,
             'marginTop' => 800,
             'marginBottom' => 800,
-            'marginLeft' => 600,
-            'marginRight' => 600,
+            'marginLeft' => 284,
+            'marginRight' => 740,
         ]);
         $markers = $this->flowchart($landscape, $sop);
 
@@ -181,7 +181,8 @@ class SopDocxGenerator
         // Tinggi baris, pembagian halaman, dan bentuk/panah dihitung di FlowchartLayout
         $L = new FlowchartLayout($pelaksana, $steps, self::TOTAL_LANDSCAPE);
         $n = $L->n;
-        [$wNo, $wKeg, $wSyr, $wWkt, $wOut, $wKet, $wPel] = [$L->wNo, $L->wKeg, $L->wSyr, $L->wWkt, $L->wOut, $L->wKet, $L->wPel];
+        [$wNo, $wKeg, $wSyr, $wWkt, $wOut, $wKet] = [$L->wNo, $L->wKeg, $L->wSyr, $L->wWkt, $L->wOut, $L->wKet];
+        $pw = $L->pw;
         $wMutu = $wSyr + $wWkt + $wOut + $wKet;
 
         $table = $this->table($section, self::TOTAL_LANDSCAPE);
@@ -189,26 +190,26 @@ class SopDocxGenerator
         $bold = ['bold' => true];
 
         // Baris header 1
-        $table->addRow($L->headH[0], ['tblHeader' => true, 'cantSplit' => true]);
+        $table->addRow($L->headH[0], ['tblHeader' => true, 'cantSplit' => true, 'exactHeight' => true]);
         $this->p($table->addCell($wNo, $this->cell(['bgColor' => self::GRAY, 'valign' => 'center', 'vMerge' => 'restart'])), 'No', $bold, Jc::CENTER);
         $this->p($table->addCell($wKeg, $this->cell(['bgColor' => self::GRAY, 'valign' => 'center', 'vMerge' => 'restart'])), 'Kegiatan', $bold, Jc::CENTER);
-        $this->p($table->addCell($wPel * $n, $this->cell(['bgColor' => self::GRAY, 'valign' => 'center', 'gridSpan' => $n])), 'Pelaksana', $bold, Jc::CENTER);
+        $this->p($table->addCell(array_sum($pw), $this->cell(['bgColor' => self::GRAY, 'valign' => 'center', 'gridSpan' => $n])), 'Pelaksana', $bold, Jc::CENTER);
         $this->p($table->addCell($wMutu, $this->cell(['bgColor' => self::GRAY, 'valign' => 'center', 'gridSpan' => 4])), 'Mutu Baku', $bold, Jc::CENTER);
 
         // Baris header 2
-        $table->addRow($L->headH[1], ['tblHeader' => true, 'cantSplit' => true]);
+        $table->addRow($L->headH[1], ['tblHeader' => true, 'cantSplit' => true, 'exactHeight' => true]);
         $table->addCell($wNo, $this->cell(['vMerge' => 'continue', 'bgColor' => self::GRAY]));
         $table->addCell($wKeg, $this->cell(['vMerge' => 'continue', 'bgColor' => self::GRAY]));
-        foreach ($pelaksana as $name) {
-            $this->p($table->addCell($wPel, $head), $name, $bold, Jc::CENTER);
+        foreach ($pelaksana as $k => $name) {
+            $this->p($table->addCell($pw[$k], $head), $name, $bold, Jc::CENTER);
         }
         foreach ([[$wSyr, 'Persyaratan dan kelengkapan'], [$wWkt, 'Waktu'], [$wOut, 'Output'], [$wKet, 'Keterangan']] as [$w, $t]) {
             $this->p($table->addCell($w, $head), $t, $bold, Jc::CENTER);
         }
 
         // Baris nomor kolom (1 2 3 ...)
-        $table->addRow($L->headH[2], ['tblHeader' => true, 'cantSplit' => true]);
-        $widths = array_merge([$wNo, $wKeg], array_fill(0, $n, $wPel), [$wSyr, $wWkt, $wOut, $wKet]);
+        $table->addRow($L->headH[2], ['tblHeader' => true, 'cantSplit' => true, 'exactHeight' => true]);
+        $widths = array_merge([$wNo, $wKeg], $pw, [$wSyr, $wWkt, $wOut, $wKet]);
         foreach ($widths as $i => $w) {
             $this->p($table->addCell($w, $this->cell(['bgColor' => self::GRAY, 'valign' => 'center'])), (string) ($i + 1), ['size' => 9], Jc::CENTER);
         }
@@ -217,8 +218,9 @@ class SopDocxGenerator
         $markers = [];
         foreach ($steps as $i => $step) {
             $r = $L->rows[$i];
-            // Tinggi baris = perkiraan (minimal); baris yang memulai halaman baru dipaksa pindah halaman
-            $table->addRow($r['h'], ['cantSplit' => true]);
+            // Tinggi baris dikunci EXACT sesuai hitungan FlowchartLayout, supaya posisi simbol/panah
+            // (offset absolut) tidak bergeser kalau Word/LibreOffice membungkus teks sedikit berbeda.
+            $table->addRow($r['h'], ['cantSplit' => true, 'exactHeight' => true]);
 
             $this->p(
                 $table->addCell($wNo, $this->cell(['valign' => 'center'])),
@@ -231,7 +233,7 @@ class SopDocxGenerator
 
             // Sel pelaksana: rata atas, berisi satu paragraf penanda sebagai jangkar bentuk
             for ($k = 0; $k < $n; $k++) {
-                $c = $table->addCell($wPel, $this->cell(['valign' => 'top']));
+                $c = $table->addCell($pw[$k], $this->cell(['valign' => 'top']));
                 if (!empty($L->shapes[$i][$k])) {
                     $key = '@@SHP_' . $i . '_' . $k . '@@';
                     $c->addText($key, ['name' => 'Arial', 'size' => 2], ['spaceAfter' => 0, 'spaceBefore' => 0]);

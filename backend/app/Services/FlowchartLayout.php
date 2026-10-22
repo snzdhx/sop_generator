@@ -25,11 +25,13 @@ class FlowchartLayout
     private const PAD = 150;         // jarak simbol ke tepi atas/bawah baris
     private const TOP_BAND = 300;    // ruang tambahan di baris pertama tiap halaman
     private const BOTTOM_BAND = 420; // ruang di bawah baris terakhir tiap halaman
-    private const PAGE_H = 10306;    // tinggi konten A4 landscape (11906 - 2 x 800)
-    private const BUS_GAP = 110;
+    private const PAGE_H = 10640;    // tinggi konten halaman landscape 20160 x 12240 (12240 - 2 x 800)
+    private const BUS_GAP = 120;    // jarak bus pembagi ke atas simbol tujuan
+    private const MERGE_GAP = 120;  // jarak bus pengumpul ke bawah simbol sumber
     private const CONN_W = 246;
     private const CONN_H = 268;
     private const FONT_PT = 10;
+    private const SAFE = 1.08;      // faktor aman lebar teks (baris dikunci exact, jadi teks tidak boleh terpotong)
 
     /** Lebar huruf Arial (per 1000 em) untuk ASCII 32..126. */
     private const ARIAL = [
@@ -138,6 +140,8 @@ class FlowchartLayout
     public int $wOut;
     public int $wKet;
     public int $wPel;
+    /** @var int[] lebar tiap kolom pelaksana (boleh beda-beda, seperti dokumen asli) */
+    public array $pw = [];
     public int $symW;
     public int $hHead = 0;
     public int $pages = 1;
@@ -157,17 +161,32 @@ class FlowchartLayout
     private int $z = 251658240;
     private int $connLetter = 0;
 
-    public function __construct(array $pelaksana, array $steps, int $totalW = 15600, array $widths = [600, 3000, 1800, 1000, 1800, 1600])
+    public function __construct(array $pelaksana, array $steps, int $totalW = 18715, array $widths = [438, 2997, 2250, 1080, 2250, 2160], array $pelWidths = [])
     {
         $this->pel = array_values($pelaksana) ?: ['Pelaksana'];
         $this->n = count($this->pel);
         [$this->wNo, $this->wKeg, $this->wSyr, $this->wWkt, $this->wOut, $this->wKet] = $widths;
-        $this->wPel = intdiv($totalW - array_sum($widths), $this->n);
-        for ($k = 0; $k < $this->n; $k++) {
-            $this->colLeft[$k] = $this->wNo + $this->wKeg + $k * $this->wPel;
-            $this->cx[$k] = $this->colLeft[$k] + intdiv($this->wPel, 2);
+        $pelTotal = $totalW - array_sum($widths);
+
+        // Lebar kolom pelaksana: dokumen asli (5 pelaksana) tidak sama lebar; selain itu dibagi rata.
+        if (count($pelWidths) === $this->n && array_sum($pelWidths) === $pelTotal) {
+            $this->pw = array_values($pelWidths);
+        } elseif ($this->n === 5 && $pelTotal === 7540) {
+            $this->pw = [1380, 1295, 1331, 1331, 2203];
+        } else {
+            $each = intdiv($pelTotal, $this->n);
+            $this->pw = array_fill(0, $this->n, $each);
+            $this->pw[$this->n - 1] += $pelTotal - $each * $this->n;
         }
-        $this->symW = max(200, min(self::SYM_W_MAX, $this->wPel - 200));
+        $this->wPel = intdiv($pelTotal, $this->n);
+
+        $left = $this->wNo + $this->wKeg;
+        for ($k = 0; $k < $this->n; $k++) {
+            $this->colLeft[$k] = $left;
+            $this->cx[$k] = $left + intdiv($this->pw[$k], 2);
+            $left += $this->pw[$k];
+        }
+        $this->symW = max(200, min(self::SYM_W_MAX, min($this->pw) - 200));
 
         $this->normalizeSteps($steps);
         $this->computeRows();
@@ -227,7 +246,7 @@ class FlowchartLayout
             $w += ($o >= 32 && $o <= 126) ? self::ARIAL[$o - 32] : 556;
         }
 
-        return $w * $pt / 1000.0 * ($bold ? 1.08 : 1.0) * 1.04; // 1.04 = faktor aman
+        return $w * $pt / 1000.0 * ($bold ? 1.08 : 1.0) * self::SAFE;
     }
 
     /** Jumlah baris hasil pembungkusan kata; kata yang terlalu panjang dipotong per karakter. */
@@ -290,11 +309,11 @@ class FlowchartLayout
     private function computeRows(): void
     {
         $namesH = 0;
-        foreach ($this->pel as $p) {
-            $namesH = max($namesH, $this->cellTextH((string) $p, $this->wPel, true));
+        foreach ($this->pel as $k => $p) {
+            $namesH = max($namesH, $this->cellTextH((string) $p, $this->pw[$k], true));
         }
         $namesH += 2 * self::CELL_M + 20;
-        $this->headH = [430, max(430, $namesH), 300];
+        $this->headH = [430, max(430, $namesH), 360]; // baris nomor: teks 9 pt + margin sel butuh >= 350
         $this->hHead = array_sum($this->headH) + 30;
 
         $cap = self::PAGE_H - self::BOTTOM_BAND;
@@ -307,7 +326,7 @@ class FlowchartLayout
                 $this->cellTextH($st['output'] ?? '', $this->wOut),
                 $this->cellTextH($st['keterangan'] ?? '', $this->wKet),
                 $this->cellTextH($st['waktu'] ?? '', $this->wWkt)
-            ) + 2 * self::CELL_M + 20;
+            ) + 2 * self::CELL_M + 60;
             if ($this->hasSym($st)) {
                 $h = max($h, $this->symHOf($i) + 2 * self::PAD);
             }
@@ -385,7 +404,7 @@ class FlowchartLayout
         $c = 0;
         $best = PHP_FLOAT_MAX;
         for ($k = 0; $k < $this->n; $k++) {
-            $d = abs($this->colLeft[$k] + $this->wPel / 2 - $x);
+            $d = abs($this->colLeft[$k] + $this->pw[$k] / 2 - $x);
             if ($d < $best) {
                 $best = $d;
                 $c = $k;
@@ -565,6 +584,13 @@ class FlowchartLayout
         $ybus = $yBt - self::BUS_GAP;
         $isDec = $st['simbol'] === 'keputusan';
 
+        // Banyak sumber di baris yang berdekatan: gabung ke bus pengumpul, satu garis utama, lalu pecah ke tujuan.
+        if ($t === $i + 1 && !$isDec && !$side && count($SA) > 1) {
+            $this->mergeSplit($i, $t);
+
+            return;
+        }
+
         $direct = [];
         $busSrc = [];
         $laneSrc = [];
@@ -594,7 +620,7 @@ class FlowchartLayout
         }
         foreach ($laneSrc as $s) {
             $sx = $this->cx[$s] + intdiv($this->symW, 2);
-            $lane = $this->colLeft[$s] + $this->wPel - 50;
+            $lane = $this->colLeft[$s] + $this->pw[$s] - 50;
             $ymid = $this->symTop($i) + intdiv($this->symHOf($i), 2);
             $this->hline($pA, $sx, $lane, $ymid);
             $this->vline($lane, $pA, $ymid, $pB, $ybus, false);
@@ -620,6 +646,44 @@ class FlowchartLayout
         }
     }
 
+    /**
+     * Pola gabung-lalu-pecah (seperti dokumen asli):
+     * simbol sumber -> bus pengumpul -> garis utama -> bus pembagi -> panah ke tiap simbol tujuan.
+     */
+    private function mergeSplit(int $i, int $t): void
+    {
+        $SA = $this->steps[$i]['pelaksana'];
+        $SB = $this->steps[$t]['pelaksana'];
+        $pA = $this->rows[$i]['page'];
+        $pB = $this->rows[$t]['page'];
+        $yA = $this->symBot($i);
+        $yBt = $this->symTop($t);
+        $ym = $yA + self::MERGE_GAP;
+        $ybus = $yBt - self::BUS_GAP;
+
+        $xsA = array_map(fn($c) => $this->cx[$c], $SA);
+        $xsB = array_map(fn($c) => $this->cx[$c], $SB);
+        $xt = count($SB) === 1
+            ? $xsB[0]
+            : intdiv(min(array_merge($xsA, $xsB)) + max(array_merge($xsA, $xsB)), 2);
+
+        foreach ($xsA as $x) {
+            $this->vline($x, $pA, $yA, $pA, $ym, false);
+        }
+        $this->hline($pA, min(array_merge($xsA, [$xt])), max(array_merge($xsA, [$xt])), $ym);
+
+        if (count($SB) === 1) {
+            $this->vline($xt, $pA, $ym, $pB, $yBt, true);
+
+            return;
+        }
+        $this->vline($xt, $pA, $ym, $pB, $ybus, true);
+        $this->hline($pB, min(array_merge($xsB, [$xt])), max(array_merge($xsB, [$xt])), $ybus);
+        foreach ($xsB as $x) {
+            $this->vline($x, $pB, $ybus, $pB, $yBt, true);
+        }
+    }
+
     // --------------------------------------------------------- XML bentuk
 
     private function shapeXml(int $did, int $z, int $x, int $y, int $cx, int $cy, string $kind, string $text = ''): string
@@ -635,10 +699,11 @@ class FlowchartLayout
             $sp = sprintf(
                 '<wps:cNvCnPr/><wps:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="%d" cy="%d"/></a:xfrm>'
                     . '<a:prstGeom prst="%s"><a:avLst/></a:prstGeom>'
-                    . '<a:ln w="9525"><a:solidFill><a:srgbClr val="000000"/></a:solidFill>%s</a:ln></wps:spPr>',
+                    . '<a:ln w="9525"%s><a:solidFill><a:srgbClr val="000000"/></a:solidFill>%s</a:ln></wps:spPr>',
                 $cxe,
                 $cye,
                 $geom,
+                $kind === 'line' ? ' cap="sq"' : '',
                 $tail
             );
             $body = '<wps:bodyPr/>';
