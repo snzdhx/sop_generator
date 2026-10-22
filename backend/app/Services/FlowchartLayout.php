@@ -427,6 +427,20 @@ class FlowchartLayout
         $this->shapes[$ri][$c][] = $this->shapeXml($this->docId, $this->z, $hx, $vy, $cx, $cy, $kind, $text);
     }
 
+    /** Satu objek garis menekuk (polyline) dengan kepala panah di titik terakhir. Koordinat absolut halaman (twips). */
+    private function poly(int $page, array $pts): void
+    {
+        $x0 = min(array_column($pts, 0));
+        $y0 = min(array_column($pts, 1));
+        $w = max(array_column($pts, 0)) - $x0;
+        $h = max(array_column($pts, 1)) - $y0;
+        [$ri, $c, $hx, $vy] = $this->anchor($page, $x0, $y0);
+        $rel = array_map(fn($p) => [$p[0] - $x0, $p[1] - $y0], $pts);
+        $this->docId++;
+        $this->z++;
+        $this->shapes[$ri][$c][] = $this->shapeXml($this->docId, $this->z, $hx, $vy, $w, $h, 'poly', '', $rel);
+    }
+
     private function hline(int $page, int $x1, int $x2, int $y): void
     {
         if ($x1 > $x2) {
@@ -645,6 +659,21 @@ class FlowchartLayout
         $join = $nA > 1 || $tx !== $this->cx[$SA[0]];
         $fork = $nB > 1 || $tx !== $this->cx[$SB[0]];
 
+        // Satu sumber -> satu tujuan beda kolom, satu halaman: satu garis menekuk (badan + tekukan + panah menyatu)
+        if ($fork && !$join && $nA === 1 && $nB === 1 && $pA === $pB && $yFork > $yA && $yBt > $yFork) {
+            $this->poly($pA, [
+                [$this->cx[$SA[0]], $yA],
+                [$this->cx[$SA[0]], $yFork],
+                [$this->cx[$SB[0]], $yFork],
+                [$this->cx[$SB[0]], $yBt],
+            ]);
+            if ($isDec && $ntg > 1) {
+                $this->add($pA, $this->cx[$SA[0]] + 40, $yA + 10, 420, 200, 'label', 'Ya');
+            }
+
+            return true;
+        }
+
         $y0 = $yA;
         if ($join) {
             $xsA = [$tx];
@@ -840,14 +869,34 @@ class FlowchartLayout
 
     // --------------------------------------------------------- XML bentuk
 
-    private function shapeXml(int $did, int $z, int $x, int $y, int $cx, int $cy, string $kind, string $text = ''): string
+    private function shapeXml(int $did, int $z, int $x, int $y, int $cx, int $cy, string $kind, string $text = '', array $pts = []): string
     {
         $cxe = $cx * self::EMU;
         $cye = $cy * self::EMU;
         $xe = $x * self::EMU;
         $ye = $y * self::EMU;
 
-        if ($kind === 'line' || $kind === 'arrow') {
+        if ($kind === 'poly') {
+            // Satu garis bebas (custGeom) yang menekuk; kepala panah di ujung akhir.
+            $path = '';
+            foreach ($pts as $k => [$px, $py]) {
+                $pt = sprintf('<a:pt x="%d" y="%d"/>', $px * self::EMU, $py * self::EMU);
+                $path .= $k === 0 ? "<a:moveTo>{$pt}</a:moveTo>" : "<a:lnTo>{$pt}</a:lnTo>";
+            }
+            $sp = sprintf(
+                '<wps:cNvSpPr/><wps:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="%d" cy="%d"/></a:xfrm>'
+                    . '<a:custGeom><a:avLst/><a:gdLst/><a:ahLst/><a:cxnLst/><a:rect l="0" t="0" r="r" b="b"/>'
+                    . '<a:pathLst><a:path w="%d" h="%d" fill="none">%s</a:path></a:pathLst></a:custGeom>'
+                    . '<a:noFill/><a:ln w="9525"><a:solidFill><a:srgbClr val="000000"/></a:solidFill>'
+                    . '<a:miter lim="800000"/><a:tailEnd type="triangle" w="med" len="med"/></a:ln></wps:spPr>',
+                $cxe,
+                $cye,
+                max(1, $cxe),
+                max(1, $cye),
+                $path
+            );
+            $body = '<wps:bodyPr/>';
+        } elseif ($kind === 'line' || $kind === 'arrow') {
             $geom = $kind === 'arrow' ? 'straightConnector1' : 'line';
             $tail = $kind === 'arrow' ? '<a:tailEnd type="triangle" w="med" len="med"/>' : '';
             $sp = sprintf(
