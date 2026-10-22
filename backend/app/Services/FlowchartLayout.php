@@ -23,7 +23,8 @@ class FlowchartLayout
     private const SYM_H = 520;
     private const DIA_H = 680;
     private const PAD = 260;         // jarak simbol ke tepi atas/bawah baris (ruang bus gabung/pisah)
-    private const TOP_BAND = 300;    // ruang tambahan di baris pertama tiap halaman
+    private const PAD_BUS = 650;     // jarak simbol ke tepi baris untuk baris berpola bus (gap antar simbol ~1300 = proporsi gambar Word asli)
+    private const TOP_BAND = 300;   // ruang tambahan di baris pertama tiap halaman
     private const BOTTOM_BAND = 420; // ruang di bawah baris terakhir tiap halaman
     private const PAGE_H = 10640;    // tinggi konten halaman landscape 20160 x 12240 (12240 - 2 x 800)
     private const BUS_GAP = 120;    // jarak bus pembagi ke atas simbol tujuan
@@ -312,9 +313,26 @@ class FlowchartLayout
         foreach ($this->pel as $k => $p) {
             $namesH = max($namesH, $this->cellTextH((string) $p, $this->pw[$k], true));
         }
+        // Header "Persyaratan dan kelengkapan" ikut dihitung (sebelumnya terpotong karena baris terlalu pendek)
+        $namesH = max($namesH, $this->cellTextH('Persyaratan dan kelengkapan', $this->wSyr, true));
         $namesH += 2 * self::CELL_M + 20;
         $this->headH = [430, max(430, $namesH), 360]; // baris nomor: teks 9 pt + margin sel butuh >= 350
         $this->hHead = array_sum($this->headH) + 30;
+
+        // Baris yang terlibat pola bus (gabung -> batang -> pecah) butuh ruang vertikal lega
+        // agar bus gabung, batang, dan bus pecah tidak saling menempel (seperti dokumen Word asli).
+        $needBus = [];
+        foreach ($this->steps as $i => $st) {
+            if (!$this->hasSym($st) || $st['simbol'] === 'keputusan') {
+                continue;
+            }
+            foreach ($this->targets($i) as $t) {
+                if (count($st['pelaksana']) > 1 || count($this->steps[$t]['pelaksana']) > 1) {
+                    $needBus[$i] = true;
+                    $needBus[$t] = true;
+                }
+            }
+        }
 
         $cap = self::PAGE_H - self::BOTTOM_BAND;
         $page = 0;
@@ -329,6 +347,9 @@ class FlowchartLayout
             ) + 2 * self::CELL_M + 60;
             if ($this->hasSym($st)) {
                 $h = max($h, $this->symHOf($i) + 2 * self::PAD);
+                if (!empty($needBus[$i])) {
+                    $h = max($h, $this->symHOf($i) + 2 * self::PAD_BUS);
+                }
             }
             $extra = 0;
             if ($y + $h > $cap && $y > $this->hHead) {
