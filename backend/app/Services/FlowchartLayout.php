@@ -529,6 +529,141 @@ class FlowchartLayout
         return false;
     }
 
+    /**
+     * Aturan masuk panah:
+     *  - tujuan SEKOLOM dengan sumber  -> masuk dari ATAS simbol (lurus ke bawah),
+     *  - tujuan BEDA kolom             -> masuk dari SAMPING simbol (garis menekuk satu objek),
+     *    kecuali sisi simbol terhalang simbol lain di baris tujuan -> masuk dari atas lewat bus.
+     * Panah keluar selalu dari bawah simbol (cabang kedua keputusan boleh dari sisi).
+     * Mengembalikan false bila kasusnya ditangani rute lama (lintas halaman, semua tujuan sekolom, dst).
+     */
+    private function sideEntry(int $i, int $t, bool $branch, int $k, int $ntg): bool
+    {
+        $st = $this->steps[$i];
+        $SA = $st['pelaksana'];
+        $SB = $this->steps[$t]['pelaksana'];
+        $pA = $this->rows[$i]['page'];
+        if ($pA !== $this->rows[$t]['page']) {
+            return false;
+        }
+        if ($branch) {
+            $SA = [$SA[0]];
+            if (array_intersect($SA, $SB)) {
+                return false;
+            }
+        }
+        if (!array_diff($SB, $SA)) {
+            return false; // semua tujuan sekolom dengan sumber: rute lama
+        }
+
+        $isDec = $st['simbol'] === 'keputusan';
+        $half = intdiv($this->symW, 2);
+        $yA = $this->symBot($i);
+        $yBt = $this->symTop($t);
+        $ymidT = $yBt + intdiv($this->symHOf($t), 2);
+        $yF = $yBt - self::BUS_GAP;
+        if ($yF <= $yA + 20) {
+            $yF = intdiv($yA + $yBt, 2);
+        }
+
+        // Rencana pasangan [sumber, tujuan, jenis]
+        $directCols = [];
+        foreach ($SB as $c) {
+            if (in_array($c, $SA, true) && !$this->collides($c, $i, $t)) {
+                $directCols[] = $c;
+            }
+        }
+        $needC = array_values(array_diff($SB, $directCols));
+        $freeSrc = array_values(array_diff($SA, $directCols));
+        $nearest = function (array $cands, int $ref) {
+            $best = $cands[0];
+            foreach ($cands as $x) {
+                if (abs($this->cx[$x] - $this->cx[$ref]) < abs($this->cx[$best] - $this->cx[$ref])) {
+                    $best = $x;
+                }
+            }
+
+            return $best;
+        };
+        $pairs = [];
+        foreach ($freeSrc as $s) {
+            $cs = $needC ?: [$nearest($SB, $s)];
+            foreach ($cs as $c) {
+                if ($c !== $s) {
+                    $pairs[] = [$s, $c];
+                }
+            }
+        }
+        foreach ($needC as $c) {
+            $has = false;
+            foreach ($pairs as $p) {
+                if ($p[1] === $c) {
+                    $has = true;
+                }
+            }
+            if (!$has) {
+                $cands = array_values(array_diff($SA, [$c]));
+                if (!$cands) {
+                    return false;
+                }
+                $pairs[] = [$nearest($cands, $c), $c];
+            }
+        }
+
+        $clean = function (int $s, int $c) use ($SB): bool {
+            if (in_array($s, $SB, true)) {
+                return false; // garis turun dari sumber menabrak simbol tujuan di kolomnya
+            }
+            foreach ($SB as $d) {
+                if ($d !== $c && $d > min($s, $c) && $d < max($s, $c)) {
+                    return false;
+                }
+            }
+
+            return true;
+        };
+
+        foreach ($directCols as $c) {
+            $this->vline($this->cx[$c], $pA, $yA, $pA, $yBt, true);
+        }
+        $ymidS = $this->symTop($i) + intdiv($this->symHOf($i), 2);
+        foreach ($pairs as [$s, $c]) {
+            $x0 = $this->cx[$s];
+            $lane = $this->colLeft[$s] + $this->pw[$s] - 50;
+            if ($branch) {
+                $pts = [[$x0 + $half, $ymidS], [$lane, $ymidS]];
+                $xv = $lane;
+            } elseif ($this->collides($s, $i, $t)) {
+                $yl = $yA + self::MERGE_GAP;
+                $pts = [[$x0, $yA], [$x0, $yl], [$lane, $yl]];
+                $xv = $lane;
+            } else {
+                $pts = [[$x0, $yA]];
+                $xv = $x0;
+            }
+            if ($clean($s, $c)) {
+                $edge = $this->cx[$c] > $xv ? $this->cx[$c] - $half : $this->cx[$c] + $half;
+                $pts[] = [$xv, $ymidT];
+                $pts[] = [$edge, $ymidT];
+            } else {
+                $pts[] = [$xv, $yF];
+                $pts[] = [$this->cx[$c], $yF];
+                $pts[] = [$this->cx[$c], $yBt];
+            }
+            $this->poly($pA, $pts);
+        }
+
+        if ($isDec && $ntg > 1) {
+            if ($branch) {
+                $this->add($pA, $this->cx[$SA[0]] + intdiv($this->symW, 4) + 40, $ymidS - 360, 420, 200, 'label', 'Tidak');
+            } elseif ($k === 0) {
+                $this->add($pA, $this->cx[$SA[0]] + 40, $yA + 10, 420, 200, 'label', 'Ya');
+            }
+        }
+
+        return true;
+    }
+
     private function routeAll(): void
     {
         foreach ($this->steps as $i => $st) {
@@ -546,6 +681,9 @@ class FlowchartLayout
             $tg = $this->targets($i);
             foreach ($tg as $k => $t) {
                 $branch = $st['simbol'] === 'keputusan' && $k >= 1;
+                if ($this->sideEntry($i, $t, $branch, $k, count($tg))) {
+                    continue;
+                }
                 if (!$branch && $this->trunk($i, $t, count($tg))) {
                     continue;
                 }
