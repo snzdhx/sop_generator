@@ -612,10 +612,10 @@ class FlowchartLayout
                 if (abs($sx - $tx) <= $half - 50) {
                     $y0 = $yA;                      // batang masih di bawah simbol sumber
                 } else {
-                    $ymid = $this->symTop($i) + intdiv($this->symHOf($i), 2);
-                    $edge = $tx > $sx ? $sx + $half : $sx - $half;
-                    $this->hline($pA, $edge, $tx, $ymid);   // keluar dari sisi simbol, menekuk ke batang
-                    $y0 = $ymid;
+                    // Output tunggal selalu keluar dari bawah simbol, lalu menekuk ke batang
+                    $this->vline($sx, $pA, $yA, $pA, $yJoin, false);
+                    $this->hline($pA, $sx, $tx, $yJoin);
+                    $y0 = $yJoin;
                 }
             }
 
@@ -802,11 +802,20 @@ class FlowchartLayout
             $xs[] = $this->cx[$s];
         }
         foreach ($laneSrc as $s) {
-            $sx = $this->cx[$s] + intdiv($this->symW, 2);
             $lane = $this->colLeft[$s] + $this->pw[$s] - 50;
-            $ymid = $this->symTop($i) + intdiv($this->symHOf($i), 2);
-            $this->hline($pA, $sx, $lane, $ymid);
-            $this->vline($lane, $pA, $ymid, $pB, $ybus, false);
+            if ($side) {
+                // Output kedua dst. (cabang keputusan): boleh keluar dari sisi simbol
+                $sx = $this->cx[$s] + intdiv($this->symW, 2);
+                $ymid = $this->symTop($i) + intdiv($this->symHOf($i), 2);
+                $this->hline($pA, $sx, $lane, $ymid);
+                $this->vline($lane, $pA, $ymid, $pB, $ybus, false);
+            } else {
+                // Output tunggal: selalu mulai dari bawah simbol, lalu bergeser ke jalur samping
+                $ymid = $yA + self::MERGE_GAP;
+                $this->vline($this->cx[$s], $pA, $yA, $pA, $ymid, false);
+                $this->hline($pA, $this->cx[$s], $lane, $ymid);
+                $this->vline($lane, $pA, $ymid, $pB, $ybus, false);
+            }
             $xs[] = $lane;
             if ($isDec && $label >= 1) {
                 $this->add($pA, $this->cx[$s] + intdiv($this->symW, 4) + 40, $ymid - 360, 420, 200, 'label', 'Tidak');
