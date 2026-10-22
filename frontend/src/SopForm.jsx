@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { api } from './api'
 
 const emptyStep = () => ({ kegiatan: '', pelaksana: [], simbol: '', lanjut: '', persyaratan: '', waktu: '', output: '', keterangan: '' })
@@ -23,6 +23,19 @@ const empty = {
   steps: [emptyStep()],
 }
 
+// Kosongkan string kosong di list & tanggal sebelum dikirim ke backend
+const buildPayload = (f) => {
+  const clean = (a) => a.map((x) => x.trim()).filter(Boolean)
+  return {
+    ...f,
+    tanggal_pembuatan: f.tanggal_pembuatan || null,
+    tanggal_revisi: f.tanggal_revisi || null,
+    tanggal_efektif: f.tanggal_efektif || null,
+    dasar_hukum: clean(f.dasar_hukum), kualifikasi: clean(f.kualifikasi),
+    keterkaitan: clean(f.keterkaitan), peralatan: clean(f.peralatan),
+  }
+}
+
 // Editor daftar teks (tambah / hapus baris)
 function ListEditor({ label, items, onChange, onRemove }) {
   const set = (i, v) => onChange(items.map((x, k) => (k === i ? v : x)))
@@ -42,11 +55,60 @@ function ListEditor({ label, items, onChange, onRemove }) {
   )
 }
 
+// Panel pratinjau: dokumen Word dirender jadi PDF di backend, otomatis diperbarui saat form berubah
+function PreviewPanel({ form, onClose }) {
+  const [url, setUrl] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [tick, setTick] = useState(0) // naik = paksa muat ulang
+  const urlRef = useRef(null)
+
+  useEffect(() => {
+    const ctrl = new AbortController()
+    setLoading(true)
+    const timer = setTimeout(async () => {
+      try {
+        const blob = await api.preview(buildPayload(form), ctrl.signal)
+        const next = URL.createObjectURL(blob)
+        if (urlRef.current) URL.revokeObjectURL(urlRef.current)
+        urlRef.current = next
+        setUrl(next)
+        setError('')
+        setLoading(false)
+      } catch (e) {
+        if (e.name === 'AbortError') return
+        setError(e.message)
+        setLoading(false)
+      }
+    }, 1200) // tunggu pengguna berhenti mengetik
+    return () => { clearTimeout(timer); ctrl.abort() }
+  }, [form, tick])
+
+  useEffect(() => () => { if (urlRef.current) URL.revokeObjectURL(urlRef.current) }, [])
+
+  return (
+    <aside className="preview">
+      <div className="preview-head">
+        <strong>Pratinjau Word (PDF)</strong>
+        <span>
+          {loading && <span className="muted">Memperbarui…</span>}{' '}
+          <button type="button" onClick={() => setTick((t) => t + 1)}>⟳ Muat ulang</button>{' '}
+          <button type="button" onClick={onClose}>Tutup</button>
+        </span>
+      </div>
+      {error && <pre className="error">{error}</pre>}
+      {url && <iframe title="Pratinjau SOP" src={`${url}#view=FitH`} />}
+      {!url && !error && <p className="muted">Menyiapkan pratinjau…</p>}
+    </aside>
+  )
+}
+
 export default function SopForm({ id, onClose }) {
   const [f, setF] = useState(empty)
   const [loading, setLoading] = useState(!!id)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [showPreview, setShowPreview] = useState(false)
 
   useEffect(() => {
     if (!id) return
@@ -102,16 +164,7 @@ export default function SopForm({ id, onClose }) {
   const save = async (download) => {
     setSaving(true); setError('')
     try {
-      // Kosongkan string kosong di list & tanggal
-      const clean = (a) => a.map((x) => x.trim()).filter(Boolean)
-      const payload = {
-        ...f,
-        tanggal_pembuatan: f.tanggal_pembuatan || null,
-        tanggal_revisi: f.tanggal_revisi || null,
-        tanggal_efektif: f.tanggal_efektif || null,
-        dasar_hukum: clean(f.dasar_hukum), kualifikasi: clean(f.kualifikasi),
-        keterkaitan: clean(f.keterkaitan), peralatan: clean(f.peralatan),
-      }
+      const payload = buildPayload(f)
       const saved = id ? await api.update(id, payload) : await api.create(payload)
       if (download) window.location.href = api.downloadUrl(saved.id)
       else onClose()
@@ -125,104 +178,115 @@ export default function SopForm({ id, onClose }) {
   if (loading) return <div className="container">Memuat…</div>
 
   return (
-    <div className="container">
+    <div className={`container${showPreview ? ' wide' : ''}`}>
       <header className="bar">
         <h1>{id ? 'Edit SOP' : 'SOP Baru'}</h1>
-        <button onClick={onClose}>← Kembali</button>
+        <span>
+          <button type="button" onClick={() => setShowPreview((v) => !v)}>
+            {showPreview ? 'Sembunyikan pratinjau' : '👁 Pratinjau Word'}
+          </button>{' '}
+          <button onClick={onClose}>← Kembali</button>
+        </span>
       </header>
 
-      <section>
-        <h2>1. Identitas SOP</h2>
-        <div className="field"><label>Nama Instansi</label><input value={f.instansi} onChange={up('instansi')} /></div>
-        <div className="field"><label>Nama SOP *</label><input value={f.nama_sop} onChange={up('nama_sop')} /></div>
-        <div className="grid">
-          <div className="field"><label>Nomor SOP</label><input value={f.nomor_sop ?? ''} onChange={up('nomor_sop')} /></div>
-          <div className="field"><label>Tanggal Pembuatan</label><input type="date" value={f.tanggal_pembuatan} onChange={up('tanggal_pembuatan')} /></div>
-          <div className="field"><label>Tanggal Revisi</label><input type="date" value={f.tanggal_revisi} onChange={up('tanggal_revisi')} /></div>
-          <div className="field"><label>Tanggal Efektif</label><input type="date" value={f.tanggal_efektif} onChange={up('tanggal_efektif')} /></div>
-        </div>
-        <div className="grid">
-          <div className="field"><label>Disahkan oleh (jabatan)</label><input value={f.pengesah_jabatan ?? ''} onChange={up('pengesah_jabatan')} /></div>
-          <div className="field"><label>Nama pejabat</label><input value={f.pengesah_nama ?? ''} onChange={up('pengesah_nama')} /></div>
-          <div className="field"><label>NIP</label><input value={f.pengesah_nip ?? ''} onChange={up('pengesah_nip')} /></div>
-        </div>
-      </section>
-
-      <section>
-        <h2>2. Informasi Pendukung</h2>
-        <ListEditor label="Dasar Hukum" items={f.dasar_hukum} onChange={setList('dasar_hukum')} />
-        <ListEditor label="Kualifikasi Pelaksana" items={f.kualifikasi} onChange={setList('kualifikasi')} />
-        <ListEditor label="Keterkaitan" items={f.keterkaitan} onChange={setList('keterkaitan')} />
-        <ListEditor label="Peralatan / Perlengkapan" items={f.peralatan} onChange={setList('peralatan')} />
-        <div className="field"><label>Peringatan</label><textarea rows="3" value={f.peringatan ?? ''} onChange={up('peringatan')} /></div>
-        <div className="field"><label>Pencatatan dan Pendataan</label><textarea rows="3" value={f.pencatatan ?? ''} onChange={up('pencatatan')} /></div>
-      </section>
-
-      <section>
-        <h2>3. Pelaksana</h2>
-        <p className="muted">Menjadi kolom pada tabel prosedur.</p>
-        <ListEditor
-          label="Daftar pelaksana"
-          items={f.pelaksana}
-          onChange={setList('pelaksana')}
-          onRemove={removePelaksana}
-        />
-      </section>
-
-      <section>
-        <h2>4. Prosedur / Kegiatan</h2>
-        {f.steps.map((s, i) => (
-          <div className="step" key={i}>
-            <div className="step-head">
-              <strong>Langkah {i + 1}</strong>
-              <span>
-                <button type="button" onClick={() => move(i, -1)}>↑</button>
-                <button type="button" onClick={() => move(i, 1)}>↓</button>
-                <button type="button" className="danger"
-                  onClick={() => setF({ ...f, steps: f.steps.filter((_, k) => k !== i) })}>Hapus</button>
-              </span>
+      <div className={showPreview ? 'split' : ''}>
+        <div className="form-col">
+          <section>
+            <h2>1. Identitas SOP</h2>
+            <div className="field"><label>Nama Instansi</label><input value={f.instansi} onChange={up('instansi')} /></div>
+            <div className="field"><label>Nama SOP *</label><input value={f.nama_sop} onChange={up('nama_sop')} /></div>
+            <div className="grid">
+              <div className="field"><label>Nomor SOP</label><input value={f.nomor_sop ?? ''} onChange={up('nomor_sop')} /></div>
+              <div className="field"><label>Tanggal Pembuatan</label><input type="date" value={f.tanggal_pembuatan} onChange={up('tanggal_pembuatan')} /></div>
+              <div className="field"><label>Tanggal Revisi</label><input type="date" value={f.tanggal_revisi} onChange={up('tanggal_revisi')} /></div>
+              <div className="field"><label>Tanggal Efektif</label><input type="date" value={f.tanggal_efektif} onChange={up('tanggal_efektif')} /></div>
             </div>
-            <div className="field"><label>Kegiatan</label>
-              <textarea rows="2" value={s.kegiatan} onChange={(e) => setStep(i, { kegiatan: e.target.value })} /></div>
-            <div className="field"><label>Pelaksana yang terlibat</label>
-              <div className="checks">
-                {f.pelaksana.map((p, k) => (
-                  <label key={k} className="check">
-                    <input type="checkbox" checked={s.pelaksana.includes(k)} onChange={() => toggle(i, k)} /> {p || `(Pelaksana ${k + 1})`}
-                  </label>
-                ))}
+            <div className="grid">
+              <div className="field"><label>Disahkan oleh (jabatan)</label><input value={f.pengesah_jabatan ?? ''} onChange={up('pengesah_jabatan')} /></div>
+              <div className="field"><label>Nama pejabat</label><input value={f.pengesah_nama ?? ''} onChange={up('pengesah_nama')} /></div>
+              <div className="field"><label>NIP</label><input value={f.pengesah_nip ?? ''} onChange={up('pengesah_nip')} /></div>
+            </div>
+          </section>
+
+          <section>
+            <h2>2. Informasi Pendukung</h2>
+            <ListEditor label="Dasar Hukum" items={f.dasar_hukum} onChange={setList('dasar_hukum')} />
+            <ListEditor label="Kualifikasi Pelaksana" items={f.kualifikasi} onChange={setList('kualifikasi')} />
+            <ListEditor label="Keterkaitan" items={f.keterkaitan} onChange={setList('keterkaitan')} />
+            <ListEditor label="Peralatan / Perlengkapan" items={f.peralatan} onChange={setList('peralatan')} />
+            <div className="field"><label>Peringatan</label><textarea rows="3" value={f.peringatan ?? ''} onChange={up('peringatan')} /></div>
+            <div className="field"><label>Pencatatan dan Pendataan</label><textarea rows="3" value={f.pencatatan ?? ''} onChange={up('pencatatan')} /></div>
+          </section>
+
+          <section>
+            <h2>3. Pelaksana</h2>
+            <p className="muted">Menjadi kolom pada tabel prosedur.</p>
+            <ListEditor
+              label="Daftar pelaksana"
+              items={f.pelaksana}
+              onChange={setList('pelaksana')}
+              onRemove={removePelaksana}
+            />
+          </section>
+
+          <section>
+            <h2>4. Prosedur / Kegiatan</h2>
+            {f.steps.map((s, i) => (
+              <div className="step" key={i}>
+                <div className="step-head">
+                  <strong>Langkah {i + 1}</strong>
+                  <span>
+                    <button type="button" onClick={() => move(i, -1)}>↑</button>
+                    <button type="button" onClick={() => move(i, 1)}>↓</button>
+                    <button type="button" className="danger"
+                      onClick={() => setF({ ...f, steps: f.steps.filter((_, k) => k !== i) })}>Hapus</button>
+                  </span>
+                </div>
+                <div className="field"><label>Kegiatan</label>
+                  <textarea rows="2" value={s.kegiatan} onChange={(e) => setStep(i, { kegiatan: e.target.value })} /></div>
+                <div className="field"><label>Pelaksana yang terlibat</label>
+                  <div className="checks">
+                    {f.pelaksana.map((p, k) => (
+                      <label key={k} className="check">
+                        <input type="checkbox" checked={s.pelaksana.includes(k)} onChange={() => toggle(i, k)} /> {p || `(Pelaksana ${k + 1})`}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+                <div className="grid">
+                  <div className="field"><label>Simbol alur</label>
+                    <select value={s.simbol || ''} onChange={(e) => setStep(i, { simbol: e.target.value })}>
+                      <option value="">Otomatis (awal = Mulai, akhir = Selesai, kata "persetujuan" = Keputusan)</option>
+                      <option value="proses">Proses (kotak)</option>
+                      <option value="mulai">Mulai (oval)</option>
+                      <option value="selesai">Selesai (oval)</option>
+                      <option value="keputusan">Keputusan (belah ketupat)</option>
+                    </select></div>
+                  <div className="field"><label>Lanjut ke langkah nomor</label>
+                    <input placeholder="Kosong = langkah berikutnya" value={s.lanjut || ''}
+                      onChange={(e) => setStep(i, { lanjut: e.target.value })} />
+                    <small>Pada Keputusan, isi dua nomor: Ya, Tidak (mis. 8,9). Isi tanda minus (-) jika alur berhenti. Hanya bisa ke langkah di bawahnya.</small></div>
+                </div>
+                <div className="grid">
+                  <div className="field"><label>Persyaratan dan kelengkapan</label>
+                    <textarea rows="2" value={s.persyaratan} onChange={(e) => setStep(i, { persyaratan: e.target.value })} /></div>
+                  <div className="field"><label>Waktu</label>
+                    <input value={s.waktu} onChange={(e) => setStep(i, { waktu: e.target.value })} /></div>
+                  <div className="field"><label>Output</label>
+                    <textarea rows="2" value={s.output} onChange={(e) => setStep(i, { output: e.target.value })} /></div>
+                  <div className="field"><label>Keterangan</label>
+                    <textarea rows="2" value={s.keterangan} onChange={(e) => setStep(i, { keterangan: e.target.value })} /></div>
+                </div>
               </div>
-            </div>
-            <div className="grid">
-              <div className="field"><label>Simbol alur</label>
-                <select value={s.simbol || ''} onChange={(e) => setStep(i, { simbol: e.target.value })}>
-                  <option value="">Otomatis (langkah pertama = Mulai, terakhir = Selesai)</option>
-                  <option value="proses">Proses (kotak)</option>
-                  <option value="mulai">Mulai (oval)</option>
-                  <option value="selesai">Selesai (oval)</option>
-                  <option value="keputusan">Keputusan (belah ketupat)</option>
-                </select></div>
-              <div className="field"><label>Lanjut ke langkah nomor</label>
-                <input placeholder="Kosong = langkah berikutnya" value={s.lanjut || ''}
-                  onChange={(e) => setStep(i, { lanjut: e.target.value })} />
-                <small>Pada Keputusan, isi dua nomor: Ya, Tidak (mis. 8,9). Isi tanda minus (-) jika alur berhenti. Hanya bisa ke langkah di bawahnya.</small></div>
-            </div>
-            <div className="grid">
-              <div className="field"><label>Persyaratan dan kelengkapan</label>
-                <textarea rows="2" value={s.persyaratan} onChange={(e) => setStep(i, { persyaratan: e.target.value })} /></div>
-              <div className="field"><label>Waktu</label>
-                <input value={s.waktu} onChange={(e) => setStep(i, { waktu: e.target.value })} /></div>
-              <div className="field"><label>Output</label>
-                <textarea rows="2" value={s.output} onChange={(e) => setStep(i, { output: e.target.value })} /></div>
-              <div className="field"><label>Keterangan</label>
-                <textarea rows="2" value={s.keterangan} onChange={(e) => setStep(i, { keterangan: e.target.value })} /></div>
-            </div>
-          </div>
-        ))}
-        <button type="button" onClick={() => setF({ ...f, steps: [...f.steps, emptyStep()] })}>+ Tambah langkah</button>
-      </section>
+            ))}
+            <button type="button" onClick={() => setF({ ...f, steps: [...f.steps, emptyStep()] })}>+ Tambah langkah</button>
+          </section>
 
-      {error && <pre className="error">{error}</pre>}
+          {error && <pre className="error">{error}</pre>}
+        </div>
+
+        {showPreview && <PreviewPanel form={f} onClose={() => setShowPreview(false)} />}
+      </div>
 
       <footer className="bar sticky">
         <button disabled={saving} onClick={() => save(false)}>Simpan</button>
