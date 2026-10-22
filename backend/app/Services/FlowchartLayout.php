@@ -678,7 +678,10 @@ class FlowchartLayout
             $tg = $this->targets($i);
             foreach ($tg as $k => $t) {
                 $branch = $st['simbol'] === 'keputusan' && $k >= 1;
-                if ($this->rows[$i]['page'] !== $this->rows[$t]['page']) {
+                // Pola bus (gabung -> batang -> pecah) dipertahankan untuk banyak simbol sumber/tujuan dan lintas halaman;
+                // aturan masuk samping/atas per panah hanya untuk satu sumber -> satu tujuan serta cabang keputusan.
+                $useBus = !$branch && (count($st['pelaksana']) > 1 || count($this->steps[$t]['pelaksana']) > 1);
+                if ($useBus || $this->rows[$i]['page'] !== $this->rows[$t]['page']) {
                     $old[] = [$i, $t, $branch, $k, count($tg)];
                     foreach ($this->steps[$t]['pelaksana'] as $c) {
                         $taken[$t][$c]['top'] = true;
