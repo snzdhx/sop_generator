@@ -656,7 +656,7 @@ class FlowchartLayout
             $y0 = $yJoin;
         }
         if ($fork) {
-            $this->vline($tx, $pA, $y0, $pB, $yFork, true);
+            $this->vline($tx, $pA, $y0, $pB, $yFork, false); // tanpa panah: satu garis menyambung ke bus
             $xsB = [$tx];
             foreach ($SB as $c) {
                 $xsB[] = $this->cx[$c];
