@@ -640,6 +640,27 @@ class FlowchartLayout
         return $out;
     }
 
+    /**
+     * Cabang keputusan bisa lurus: keluar dari sisi simbol sumber, mendatar ke kolom tujuan,
+     * lalu turun lurus di kolom tujuan. Syarat: kolom tujuan tidak punya simbol di baris antara
+     * sumber dan tujuan, dan tidak ada simbol lain di baris sumber yang terlewati garis mendatar.
+     */
+    private function straightOk(int $i, int $t, int $s, int $c): bool
+    {
+        if ($s === $c || $this->collides($c, $i, $t)) {
+            return false;
+        }
+        $lo = min($s, $c);
+        $hi = max($s, $c);
+        foreach ($this->steps[$i]['pelaksana'] as $d) {
+            if ($d !== $s && $d >= $lo && $d <= $hi) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
     private function collides(int $col, int $i, int $t): bool
     {
         for ($r = $i + 1; $r < $t; $r++) {
@@ -718,6 +739,19 @@ class FlowchartLayout
         $xc = $this->cx[$c];
         $lane = $this->colLeft[$s] + $this->pw[$s] - 50;
         $viaLane = false;
+
+        // Cabang keputusan: lurus ke kolom tujuan jika kolomnya kosong (menghindari simbol bila tidak)
+        if ($branch && $this->straightOk($i, $t, $s, $c)) {
+            $ymidS = $this->symTop($i) + intdiv($this->symHOf($i), 2);
+            $dir = $this->cx[$c] > $this->cx[$s] ? 1 : -1;
+            $this->poly($pg, [
+                [$x0 + $dir * $half, $ymidS],
+                [$xc, $ymidS],
+                [$xc, $yBt],
+            ]);
+
+            return;
+        }
 
         if ($branch) {
             $ymidS = $this->symTop($i) + intdiv($this->symHOf($i), 2);
@@ -838,6 +872,8 @@ class FlowchartLayout
                     $s = $arrows[$n]['s'];
                     if ($s === $c) {
                         $cands = ['top'];
+                    } elseif ($arrows[$n]['branch'] && $this->straightOk($arrows[$n]['i'], $t, $s, $c)) {
+                        $cands = ['top']; // cabang lurus selalu masuk dari atas
                     } else {
                         $pref = $this->cx[$c] > $this->cx[$s] ? 'left' : 'right';
                         $cands = [$pref, 'top', $pref === 'left' ? 'right' : 'left'];
@@ -866,7 +902,12 @@ class FlowchartLayout
             $s0 = $this->steps[$i]['pelaksana'][0];
             if ($branch) {
                 $ymidS = $this->symTop($i) + intdiv($this->symHOf($i), 2);
-                $this->add($this->rows[$i]['page'], $this->cx[$s0] + intdiv($this->symW, 4) + 40, $ymidS - 360, 420, 200, 'label', 'Tidak');
+                $c0 = $this->steps[$t]['pelaksana'][0];
+                $left = $this->straightOk($i, $t, $s0, $c0) && $this->cx[$c0] < $this->cx[$s0];
+                $lx = $left
+                    ? $this->cx[$s0] - intdiv($this->symW, 4) - 460
+                    : $this->cx[$s0] + intdiv($this->symW, 4) + 40;
+                $this->add($this->rows[$i]['page'], $lx, $ymidS - 360, 420, 200, 'label', 'Tidak');
             } elseif ($k === 0) {
                 $this->add($this->rows[$i]['page'], $this->cx[$s0] + 40, $this->symBot($i) + 10, 420, 200, 'label', 'Ya');
             }
@@ -1098,6 +1139,25 @@ class FlowchartLayout
         $yBt = $this->symTop($t);
         $ybus = $yBt - self::BUS_GAP;
         $isDec = $st['simbol'] === 'keputusan';
+
+        // Cabang keputusan lintas halaman: lurus di kolom tujuan bila kosong (tembus konektor halaman)
+        if ($side && count($SB) === 1 && $this->straightOk($i, $t, $SA[0], $SB[0])) {
+            $s = $SA[0];
+            $c = $SB[0];
+            $half = intdiv($this->symW, 2);
+            $dir = $this->cx[$c] > $this->cx[$s] ? 1 : -1;
+            $ymid = $this->symTop($i) + intdiv($this->symHOf($i), 2);
+            $this->hline($pA, $this->cx[$s] + $dir * $half, $this->cx[$c], $ymid);
+            $this->vline($this->cx[$c], $pA, $ymid, $pB, $yBt, true);
+            if ($isDec && $label >= 1) {
+                $lx = $dir > 0
+                    ? $this->cx[$s] + intdiv($this->symW, 4) + 40
+                    : $this->cx[$s] - intdiv($this->symW, 4) - 460;
+                $this->add($pA, $lx, $ymid - 360, 420, 200, 'label', 'Tidak');
+            }
+
+            return;
+        }
 
         // Banyak sumber di baris yang berdekatan: gabung ke bus pengumpul, satu garis utama, lalu pecah ke tujuan.
         if ($t === $i + 1 && !$isDec && !$side && count($SA) > 1) {
