@@ -918,9 +918,9 @@ class FlowchartLayout
         if (!$isDec && $nB > 1) {
             $xsA = array_map(fn($c) => $this->cx[$c], $SA);
             $xsB = array_map(fn($c) => $this->cx[$c], $SB);
-            $ext = $nA > 1 ? array_merge($xsA, $xsB) : $xsB;
-            $tx = intdiv(min($ext) + max($ext), 2);
-            if ($nA === 1 && $nB % 2 === 1) {
+            // Panah ke bus pembagi selalu di tengah kotak-kotak tujuan (bukan tengah gabungan sumber + tujuan)
+            $tx = intdiv(min($xsB) + max($xsB), 2);
+            if ($nB % 2 === 1) {
                 // Cabang ganjil (mis. 3): panah masuk bus tepat di tengah, segaris dengan kotak tengah
                 $mid = $xsB[intdiv($nB, 2)];
                 if (abs($mid - $tx) <= intdiv($this->symW, 2)) {
