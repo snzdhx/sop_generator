@@ -302,7 +302,7 @@ export default function SopForm({ id, onClose }) {
                   <div className="field"><label>Lanjut ke langkah nomor</label>
                     <input placeholder="Kosong = langkah berikutnya" value={s.lanjut || ''}
                       onChange={(e) => setStep(i, { lanjut: e.target.value })} />
-                    <small>Pada Keputusan, isi dua nomor: Ya, Tidak (mis. 8,9). Isi tanda minus (-) jika alur berhenti. Hanya bisa ke langkah di bawahnya.</small></div>
+                    <small>Pada Keputusan, isi dua nomor: Ya, Tidak (mis. 8,9). Simbol Proses juga boleh punya 2 panah keluar: isi dua nomor dipisah koma (mis. 8,9). Isi tanda minus (-) jika alur berhenti. Hanya bisa ke langkah di bawahnya.</small></div>
                 </div>
                 <div className="grid">
                   <div className="field"><label>Persyaratan dan kelengkapan</label>
