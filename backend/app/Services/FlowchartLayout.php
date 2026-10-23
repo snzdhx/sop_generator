@@ -916,7 +916,7 @@ class FlowchartLayout
             $y0 = $yJoin;
         }
         if ($fork) {
-            $this->vline($tx, $pA, $y0, $pB, $yFork, true); // panah di tengah menuju bus pembagi
+            $this->vline($tx, $pA, $y0, $pB, $yFork, $nB > 1); // panah ke bus hanya jika bercabang ke banyak kotak; tujuan tunggal: satu panah di kotak
             $xsB = [$tx];
             foreach ($SB as $c) {
                 $xsB[] = $this->cx[$c];
