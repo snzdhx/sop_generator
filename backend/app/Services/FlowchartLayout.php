@@ -28,8 +28,8 @@ class FlowchartLayout
     private const BOTTOM_BAND = 420; // ruang di bawah baris terakhir tiap halaman
     private const PAGE_H = 10640;    // tinggi konten halaman landscape 20160 x 12240 (12240 - 2 x 800)
     private const BUS_GAP = 200;    // jarak bus pembagi ke atas simbol tujuan (cukup panjang agar badan panah terlihat, bukan hanya kepala)
-    private const MERGE_GAP = 120;  // jarak bus pengumpul ke bawah simbol sumber
-    private const JOIN_GAP = 120;   // jarak minimum bus gabung (pola batang) ke bawah simbol sumber
+    private const MERGE_GAP = 260;  // jarak bus pengumpul ke bawah simbol sumber
+    private const JOIN_GAP = 260;   // jarak minimum bus gabung (pola batang) ke bawah simbol sumber
     private const JOIN_FRAC = 0.27; // jarak bus gabung = 27% jarak antar simbol (seperti dokumen Word asli)
     private const FORK_FRAC = 0.33; // jarak bus pembagi ke atas simbol tujuan = 33% jarak antar simbol
     /** Dokumen asli: pada pola gabung-pisah hanya simbol terluar (kiri & kanan) yang disambung ke bus gabung. */
