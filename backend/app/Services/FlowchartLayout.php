@@ -27,7 +27,7 @@ class FlowchartLayout
     private const TOP_BAND = 300;   // ruang tambahan di baris pertama tiap halaman
     private const BOTTOM_BAND = 420; // ruang di bawah baris terakhir tiap halaman
     private const PAGE_H = 10640;    // tinggi konten halaman landscape 20160 x 12240 (12240 - 2 x 800)
-    private const BUS_GAP = 120;    // jarak bus pembagi ke atas simbol tujuan
+    private const BUS_GAP = 200;    // jarak bus pembagi ke atas simbol tujuan (cukup panjang agar badan panah terlihat, bukan hanya kepala)
     private const MERGE_GAP = 120;  // jarak bus pengumpul ke bawah simbol sumber
     private const JOIN_GAP = 120;   // jarak minimum bus gabung (pola batang) ke bawah simbol sumber
     private const JOIN_FRAC = 0.27; // jarak bus gabung = 27% jarak antar simbol (seperti dokumen Word asli)
@@ -448,18 +448,119 @@ class FlowchartLayout
         $this->shapes[$ri][$c][] = $this->shapeXml($this->docId, $this->z, $hx, $vy, $cx, $cy, $kind, $text);
     }
 
-    /** Satu objek garis menekuk (polyline) dengan kepala panah di titik terakhir. Koordinat absolut halaman (twips). */
-    private function poly(int $page, array $pts): void
+    /**
+     * Garis menekuk dengan kepala panah di titik terakhir. Koordinat absolut halaman (twips).
+     * Garis dipotong per baris tabel dan tiap potongan dijangkarkan ke barisnya sendiri, supaya posisinya
+     * tidak bergeser terhadap simbol walaupun Word menghitung tinggi baris sedikit berbeda (selisih menumpuk
+     * jika satu objek dijangkarkan di baris yang jauh dari tujuannya). Sambungan antar potongan jatuh di garis tabel.
+     */
+    private function poly(int $page, array $pts, bool $arrow = true): void
+    {
+        $bands = $this->bands($page);
+        $nSeg = count($pts) - 1;
+        foreach ($bands as [$ri, $lo, $hi]) {
+            $pieces = [];
+            $cur = [];
+            $curArrow = false;
+            for ($k = 0; $k < $nSeg; $k++) {
+                $seg = $this->clipSeg($pts[$k], $pts[$k + 1], $lo, $hi);
+                if ($seg === null) {
+                    if ($cur) {
+                        $pieces[] = [$cur, $curArrow];
+                        $cur = [];
+                        $curArrow = false;
+                    }
+                    continue;
+                }
+                if ($cur && $cur[count($cur) - 1] !== $seg[0]) {
+                    $pieces[] = [$cur, $curArrow];
+                    $cur = [];
+                    $curArrow = false;
+                }
+                if (!$cur) {
+                    $cur[] = $seg[0];
+                }
+                $cur[] = $seg[1];
+                if ($k === $nSeg - 1 && $seg[1] === $pts[$k + 1]) {
+                    $curArrow = true;
+                }
+            }
+            if ($cur) {
+                $pieces[] = [$cur, $curArrow];
+            }
+            foreach ($pieces as [$pp, $isLast]) {
+                $this->emitPiece($page, $ri, $pp, $arrow && $isLast);
+            }
+        }
+    }
+
+    /** Pita baris halaman: [indeks baris, batas atas, batas bawah) ; baris pertama/terakhir diperluas tak hingga. */
+    private function bands(int $page): array
+    {
+        $list = [];
+        foreach ($this->rows as $i => $r) {
+            if ($r['page'] === $page) {
+                $list[] = [$i, $r['top'], $r['top'] + $r['h'] + 8];
+            }
+        }
+        if (!$list) {
+            return [[0, PHP_INT_MIN, PHP_INT_MAX]];
+        }
+        $list[0][1] = PHP_INT_MIN;
+        $list[count($list) - 1][2] = PHP_INT_MAX;
+
+        return $list;
+    }
+
+    /** Potong ruas lurus (sumbu X atau Y) ke pita [lo, hi). Mengembalikan [awal, akhir] atau null. */
+    private function clipSeg(array $a, array $b, int $lo, int $hi): ?array
+    {
+        if ($a[1] === $b[1]) { // datar
+            return ($a[1] >= $lo && ($a[1] < $hi || $hi === PHP_INT_MAX)) ? [$a, $b] : null;
+        }
+        $mn = max(min($a[1], $b[1]), $lo);
+        $mx = min(max($a[1], $b[1]), $hi);
+        if ($mx - $mn < 1) {
+            return null;
+        }
+        $down = $b[1] > $a[1];
+
+        return $down ? [[$a[0], $mn], [$a[0], $mx]] : [[$a[0], $mx], [$a[0], $mn]];
+    }
+
+    private function emitPiece(int $page, int $ri, array $pts, bool $arrow): void
     {
         $x0 = min(array_column($pts, 0));
         $y0 = min(array_column($pts, 1));
         $w = max(array_column($pts, 0)) - $x0;
         $h = max(array_column($pts, 1)) - $y0;
-        [$ri, $c, $hx, $vy] = $this->anchor($page, $x0, $y0);
-        $rel = array_map(fn($p) => [$p[0] - $x0, $p[1] - $y0], $pts);
+        $c = 0;
+        $best = PHP_FLOAT_MAX;
+        for ($k = 0; $k < $this->n; $k++) {
+            $d = abs($this->colLeft[$k] + $this->pw[$k] / 2 - $x0);
+            if ($d < $best) {
+                $best = $d;
+                $c = $k;
+            }
+        }
+        $hx = (int) round($x0 - ($this->colLeft[$c] + self::CELL_M));
+        $vy = (int) round($y0 - ($this->rows[$ri]['top'] + self::CELL_M));
         $this->docId++;
         $this->z++;
-        $this->shapes[$ri][$c][] = $this->shapeXml($this->docId, $this->z, $hx, $vy, $w, $h, 'poly', '', $rel);
+
+        if (count($pts) === 2 && $pts[0][0] === $pts[1][0] && $pts[1][1] > $pts[0][1]) {
+            $kind = $arrow ? 'arrow' : 'line'; // vertikal ke bawah
+            $this->shapes[$ri][$c][] = $this->shapeXml($this->docId, $this->z, $hx, $vy, 0, $h, $kind);
+
+            return;
+        }
+        if (count($pts) === 2 && !$arrow) {
+            $this->shapes[$ri][$c][] = $this->shapeXml($this->docId, $this->z, $hx, $vy, $w, $h, 'line');
+
+            return;
+        }
+        $rel = array_map(fn($p) => [$p[0] - $x0, $p[1] - $y0], $pts);
+        $this->shapes[$ri][$c][] = $this->shapeXml($this->docId, $this->z, $hx, $vy, $w, $h, $arrow ? 'poly' : 'polyline', '', $rel);
     }
 
     private function hline(int $page, int $x1, int $x2, int $y): void
@@ -479,7 +580,7 @@ class FlowchartLayout
         $kind = $arrow ? 'arrow' : 'line';
         if ($pA === $pB) {
             if ($yB - $yA >= 2) {
-                $this->add($pA, $x, $yA, 0, $yB - $yA, $kind);
+                $this->poly($pA, [[$x, $yA], [$x, $yB]], $arrow);
             }
 
             return;
@@ -489,14 +590,14 @@ class FlowchartLayout
         $half = intdiv(self::CONN_W, 2);
         $yEnd = $this->pageBottom($pA);
         if ($yEnd - $yA >= 2) {
-            $this->add($pA, $x, $yA, 0, $yEnd - $yA, 'line');
+            $this->poly($pA, [[$x, $yA], [$x, $yEnd]], false);
         }
         $this->add($pA, $x - $half, $yEnd, self::CONN_W, self::CONN_H, 'offpage', $letter);
         $yTop = $this->hHead + 20;
         $this->add($pB, $x - $half, $yTop, self::CONN_W, self::CONN_H, 'offpage', $letter);
         $yFrom = $yTop + self::CONN_H;
         if ($yB - $yFrom >= 2) {
-            $this->add($pB, $x, $yFrom, 0, $yB - $yFrom, $kind);
+            $this->poly($pB, [[$x, $yFrom], [$x, $yB]], $arrow);
         }
     }
 
@@ -1116,7 +1217,7 @@ class FlowchartLayout
         $xe = $x * self::EMU;
         $ye = $y * self::EMU;
 
-        if ($kind === 'poly') {
+        if ($kind === 'poly' || $kind === 'polyline') {
             // Satu garis bebas (custGeom) yang menekuk; kepala panah di ujung akhir.
             $path = '';
             foreach ($pts as $k => [$px, $py]) {
@@ -1128,12 +1229,13 @@ class FlowchartLayout
                     . '<a:custGeom><a:avLst/><a:gdLst/><a:ahLst/><a:cxnLst/><a:rect l="0" t="0" r="r" b="b"/>'
                     . '<a:pathLst><a:path w="%d" h="%d" fill="none">%s</a:path></a:pathLst></a:custGeom>'
                     . '<a:noFill/><a:ln w="9525"><a:solidFill><a:srgbClr val="000000"/></a:solidFill>'
-                    . '<a:miter lim="800000"/><a:tailEnd type="triangle" w="med" len="med"/></a:ln></wps:spPr>',
+                    . '<a:miter lim="800000"/>%s</a:ln></wps:spPr>',
                 $cxe,
                 $cye,
                 max(1, $cxe),
                 max(1, $cye),
-                $path
+                $path,
+                $kind === 'poly' ? '<a:tailEnd type="triangle" w="med" len="med"/>' : ''
             );
             $body = '<wps:bodyPr/>';
         } elseif ($kind === 'line' || $kind === 'arrow') {
