@@ -833,7 +833,8 @@ class FlowchartLayout
             }
             $tg = $this->targets($i);
             foreach ($tg as $k => $t) {
-                $branch = $st['simbol'] === 'keputusan' && $k >= 1;
+                // Output kedua dst. dari simbol mana pun (keputusan maupun proses dengan 2+ tujuan) keluar dari sisi simbol.
+                $branch = $k >= 1 && ($st['simbol'] === 'keputusan' || count($tg) >= 2);
                 // Pola bus (gabung -> batang -> pecah) dipertahankan untuk banyak simbol sumber/tujuan dan lintas halaman;
                 // aturan masuk samping/atas per panah hanya untuk satu sumber -> satu tujuan serta cabang keputusan.
                 $useBus = !$branch && (count($st['pelaksana']) > 1 || count($this->steps[$t]['pelaksana']) > 1);
