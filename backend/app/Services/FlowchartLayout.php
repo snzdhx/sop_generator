@@ -819,6 +819,13 @@ class FlowchartLayout
             $xsB = array_map(fn($c) => $this->cx[$c], $SB);
             $ext = $nA > 1 ? array_merge($xsA, $xsB) : $xsB;
             $tx = intdiv(min($ext) + max($ext), 2);
+            if ($nA === 1 && $nB % 2 === 1) {
+                // Cabang ganjil (mis. 3): panah masuk bus tepat di tengah, segaris dengan kotak tengah
+                $mid = $xsB[intdiv($nB, 2)];
+                if (abs($mid - $tx) <= intdiv($this->symW, 2)) {
+                    $tx = $mid;
+                }
+            }
             if ($this->collidesX($tx, $i, $t)) {
                 return false;
             }
@@ -843,7 +850,7 @@ class FlowchartLayout
                 }
             }
 
-            $this->vline($tx, $pA, $y0, $pB, $yFork, false); // tanpa panah: panah ada di tiap kotak tujuan
+            $this->vline($tx, $pA, $y0, $pB, $yFork, true); // panah di tengah menuju bus pembagi
             $this->hline($pB, min(array_merge($xsB, [$tx])), max(array_merge($xsB, [$tx])), $yFork);
             foreach ($xsB as $x) {
                 $this->vline($x, $pB, $yFork, $pB, $yBt, true);
@@ -909,7 +916,7 @@ class FlowchartLayout
             $y0 = $yJoin;
         }
         if ($fork) {
-            $this->vline($tx, $pA, $y0, $pB, $yFork, false); // tanpa panah: satu garis menyambung ke bus
+            $this->vline($tx, $pA, $y0, $pB, $yFork, true); // panah di tengah menuju bus pembagi
             $xsB = [$tx];
             foreach ($SB as $c) {
                 $xsB[] = $this->cx[$c];
@@ -1093,7 +1100,7 @@ class FlowchartLayout
 
             return;
         }
-        $this->vline($xt, $pA, $ym, $pB, $ybus, false);
+        $this->vline($xt, $pA, $ym, $pB, $ybus, true);
         $this->hline($pB, min(array_merge($xsB, [$xt])), max(array_merge($xsB, [$xt])), $ybus);
         foreach ($xsB as $x) {
             $this->vline($x, $pB, $ybus, $pB, $yBt, true);
