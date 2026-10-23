@@ -1228,7 +1228,7 @@ class FlowchartLayout
                 '<wps:cNvSpPr/><wps:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="%d" cy="%d"/></a:xfrm>'
                     . '<a:custGeom><a:avLst/><a:gdLst/><a:ahLst/><a:cxnLst/><a:rect l="0" t="0" r="r" b="b"/>'
                     . '<a:pathLst><a:path w="%d" h="%d" fill="none">%s</a:path></a:pathLst></a:custGeom>'
-                    . '<a:noFill/><a:ln w="9525"><a:solidFill><a:srgbClr val="000000"/></a:solidFill>'
+                    . '<a:noFill/><a:ln w="19050"><a:solidFill><a:srgbClr val="000000"/></a:solidFill>'
                     . '<a:miter lim="800000"/>%s</a:ln></wps:spPr>',
                 $cxe,
                 $cye,
@@ -1244,7 +1244,7 @@ class FlowchartLayout
             $sp = sprintf(
                 '<wps:cNvCnPr/><wps:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="%d" cy="%d"/></a:xfrm>'
                     . '<a:prstGeom prst="%s"><a:avLst/></a:prstGeom>'
-                    . '<a:ln w="9525"%s><a:solidFill><a:srgbClr val="000000"/></a:solidFill>%s</a:ln></wps:spPr>',
+                    . '<a:ln w="19050"%s><a:solidFill><a:srgbClr val="000000"/></a:solidFill>%s</a:ln></wps:spPr>',
                 $cxe,
                 $cye,
                 $geom,
@@ -1265,7 +1265,7 @@ class FlowchartLayout
                 $ln = '<a:ln><a:noFill/></a:ln>';
             } else {
                 $fill = '<a:solidFill><a:srgbClr val="FFFFFF"/></a:solidFill>';
-                $ln = '<a:ln w="9525"><a:solidFill><a:srgbClr val="000000"/></a:solidFill></a:ln>';
+                $ln = '<a:ln w="19050"><a:solidFill><a:srgbClr val="000000"/></a:solidFill></a:ln>';
             }
             $sp = sprintf(
                 '<wps:cNvSpPr/><wps:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="%d" cy="%d"/></a:xfrm>'
