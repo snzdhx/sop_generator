@@ -97,54 +97,6 @@ function ListEditor({ label, items, onChange, onRemove }) {
   )
 }
 
-// Panel pratinjau: dokumen Word dirender jadi PDF di backend, otomatis diperbarui saat form berubah
-function PreviewPanel({ form, onClose }) {
-  const [url, setUrl] = useState(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
-  const [tick, setTick] = useState(0) // naik = paksa muat ulang
-  const urlRef = useRef(null)
-
-  useEffect(() => {
-    const ctrl = new AbortController()
-    setLoading(true)
-    const timer = setTimeout(async () => {
-      try {
-        const blob = await api.preview(buildPayload(form), ctrl.signal)
-        const next = URL.createObjectURL(blob)
-        if (urlRef.current) URL.revokeObjectURL(urlRef.current)
-        urlRef.current = next
-        setUrl(next)
-        setError('')
-        setLoading(false)
-      } catch (e) {
-        if (e.name === 'AbortError') return
-        setError(e.message)
-        setLoading(false)
-      }
-    }, 1200) // tunggu pengguna berhenti mengetik
-    return () => { clearTimeout(timer); ctrl.abort() }
-  }, [form, tick])
-
-  useEffect(() => () => { if (urlRef.current) URL.revokeObjectURL(urlRef.current) }, [])
-
-  return (
-    <aside className="preview">
-      <div className="preview-head">
-        <strong>Pratinjau Word (PDF)</strong>
-        <span>
-          {loading && <span className="muted">Memperbarui…</span>}{' '}
-          <button type="button" onClick={() => setTick((t) => t + 1)}>⟳ Muat ulang</button>{' '}
-          <button type="button" onClick={onClose}>Tutup</button>
-        </span>
-      </div>
-      {error && <pre className="error">{error}</pre>}
-      {url && <iframe title="Pratinjau SOP" src={`${url}#view=FitH`} />}
-      {!url && !error && <p className="muted">Menyiapkan pratinjau…</p>}
-    </aside>
-  )
-}
-
 // ---------- Alur "Lanjut ke": parsing, pilihan, peringatan ----------
 const parseL = (s) => String(s || '').split(/[,;]/).map((x) => x.trim()).filter(Boolean)
 const joinL = (a) => a.filter(Boolean).join(',')
@@ -295,7 +247,6 @@ export default function SopForm({ id, onClose }) {
   const [loading, setLoading] = useState(!!id)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
-  const [showPreview, setShowPreview] = useState(false)
 
   useEffect(() => {
     if (!id) return
@@ -373,18 +324,13 @@ export default function SopForm({ id, onClose }) {
   if (loading) return <div className="container">Memuat…</div>
 
   return (
-    <div className={`container${showPreview ? ' wide' : ''}`}>
+    <div className="container">
       <header className="bar">
         <h1>{id ? 'Edit SOP' : 'SOP Baru'}</h1>
-        <span>
-          <button type="button" onClick={() => setShowPreview((v) => !v)}>
-            {showPreview ? 'Sembunyikan pratinjau' : '👁 Pratinjau Word'}
-          </button>{' '}
-          <button onClick={onClose}>← Kembali</button>
-        </span>
+        <button onClick={onClose}>← Kembali</button>
       </header>
 
-      <div className={showPreview ? 'split' : ''}>
+      <div>
         <div className="form-col">
           <section>
             <h2>1. Identitas SOP</h2>
@@ -470,7 +416,6 @@ export default function SopForm({ id, onClose }) {
           {error && <pre className="error">{error}</pre>}
         </div>
 
-        {showPreview && <PreviewPanel form={f} onClose={() => setShowPreview(false)} />}
       </div>
 
       <footer className="bar sticky">

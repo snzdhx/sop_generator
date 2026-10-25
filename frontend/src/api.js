@@ -18,26 +18,6 @@ async function request(url, options = {}) {
   return res.status === 204 ? null : res.json()
 }
 
-// Pratinjau: kirim data form (tanpa menyimpan), terima PDF hasil render dokumen Word
-async function preview(data, signal) {
-  let res
-  try {
-    res = await fetch(`${BASE}/preview`, { method: 'POST', headers, body: JSON.stringify(data), signal })
-  } catch (e) {
-    if (e.name === 'AbortError') throw e
-    throw new Error(`Tidak bisa terhubung ke backend di ${API_URL || 'server ini'}. Pastikan "php artisan serve" berjalan.`)
-  }
-  if (!res.ok) {
-    let msg = `Server error (${res.status})`
-    try {
-      const j = await res.json()
-      msg = j.errors ? Object.values(j.errors).flat().join('\n') : j.message || msg
-    } catch { /* abaikan */ }
-    throw new Error(msg)
-  }
-  return res.blob()
-}
-
 export const api = {
   list: () => request(BASE),
   get: (id) => request(`${BASE}/${id}`),
@@ -45,5 +25,4 @@ export const api = {
   update: (id, data) => request(`${BASE}/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   remove: (id) => request(`${BASE}/${id}`, { method: 'DELETE' }),
   downloadUrl: (id) => `${BASE}/${id}/download`,
-  preview,
 }
