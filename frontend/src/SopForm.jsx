@@ -145,6 +145,151 @@ function PreviewPanel({ form, onClose }) {
   )
 }
 
+// ---------- Alur "Lanjut ke": parsing, pilihan, peringatan ----------
+const parseL = (s) => String(s || '').split(/[,;]/).map((x) => x.trim()).filter(Boolean)
+const joinL = (a) => a.filter(Boolean).join(',')
+
+// Perbarui semua nomor tujuan ("lanjut") di semua langkah. fn(n) -> nomor baru, atau null = hapus.
+const remap = (steps, fn) => steps.map((s) => {
+  const parts = parseL(s.lanjut)
+  if (!parts.length) return s
+  const out = parts.map((p) => (p === '-' || isNaN(p) ? p : fn(Number(p)))).filter((x) => x !== null)
+  return { ...s, lanjut: joinL(out.map(String)) }
+})
+
+// Dropdown buatan sendiri: tiap pilihan menampilkan kalimat kegiatan LENGKAP (select bawaan hanya satu baris)
+function StepSelect({ value, onChange, steps, from, allowBack, blankLabel, allowStop = true }) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef(null)
+  useEffect(() => {
+    if (!open) return
+    const close = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false) }
+    const esc = (e) => { if (e.key === 'Escape') setOpen(false) }
+    document.addEventListener('mousedown', close)
+    document.addEventListener('keydown', esc)
+    return () => { document.removeEventListener('mousedown', close); document.removeEventListener('keydown', esc) }
+  }, [open])
+
+  const opts = []
+  if (blankLabel) opts.push({ v: '', title: blankLabel })
+  if (allowStop) opts.push({ v: '-', title: 'Berhenti (tanpa panah)' })
+  steps.forEach((st, j) => {
+    if (j === from || (!allowBack && j < from)) return
+    opts.push({ v: String(j + 1), title: `${j + 1}.`, text: (st.kegiatan || '').trim() || '(kegiatan masih kosong)' })
+  })
+  const cur = opts.find((o) => o.v === String(value ?? ''))
+  const pick = (v) => { setOpen(false); onChange(v) }
+
+  return (
+    <div className="picker" ref={ref}>
+      <button type="button" className="picker-btn" aria-haspopup="listbox" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
+        {cur ? `${cur.title}${cur.text ? ' ' + cur.text : ''}` : `Langkah ${value} (tidak tersedia)`}
+      </button>
+      {open && (
+        <div className="picker-menu" role="listbox">
+          {opts.map((o) => (
+            <button type="button" role="option" aria-selected={o.v === String(value ?? '')} key={o.v || 'blank'}
+              className={`picker-item${o.v === String(value ?? '') ? ' selected' : ''}`} onClick={() => pick(o.v)}>
+              <strong>{o.title}</strong>{o.text ? ' ' + o.text : ''}
+            </button>
+          ))}
+        </div>
+      )}
+      {!open && cur?.text && <div className="picker-full">{cur.text}</div>}
+    </div>
+  )
+}
+
+function warningsOf(steps, i) {
+  const s = steps[i]
+  const parts = parseL(s.lanjut)
+  const w = []
+  const nums = parts.filter((p) => p !== '-').map(Number)
+  const isDec = s.simbol === 'keputusan'
+
+  if (isDec && nums.length < 2 && !parts.includes('-')) w.push('Keputusan hanya punya 1 tujuan: isi juga "Jika Tidak".')
+  if (isDec && nums.length === 2 && nums[0] === nums[1]) w.push('"Ya" dan "Tidak" menuju langkah yang sama.')
+  if (isDec && nums.length === 2 && nums[0] < i + 1) w.push(`"Ya" menuju langkah ${nums[0]} (kembali ke belakang). Biasanya "Ya" maju dan "Tidak" yang kembali.`)
+  for (const n of nums) {
+    if (!steps[n - 1]) { w.push(`Langkah ${n} tidak ada.`); continue }
+    if (n === i + 1) w.push('Tujuan tidak boleh langkah ini sendiri.')
+    if (!isDec && n < i + 1) w.push(`Langkah ${n} ada di atas langkah ini; hanya Keputusan yang boleh kembali ke atas.`)
+    if (!(steps[n - 1].pelaksana || []).length) w.push(`Langkah ${n} belum punya pelaksana yang dicentang, panah akan melewatinya.`)
+  }
+  return w
+}
+
+// Ringkasan alur satu baris, mis. "7 ─Ya→ 8, ─Tidak→ 4"
+function summaryOf(steps, i) {
+  const s = steps[i]
+  if (s.simbol === 'selesai') return `${i + 1} ■ selesai`
+  const parts = parseL(s.lanjut)
+  if (parts[0] === '-') return `${i + 1} ■ berhenti`
+  const t = parts.length ? parts : (i + 2 <= steps.length ? [String(i + 2)] : [])
+  if (!t.length) return `${i + 1} (tidak ada tujuan)`
+  if (s.simbol === 'keputusan') {
+    const [ya, tidak] = t
+    return `${i + 1} ─Ya→ ${ya}` + (tidak ? `, ─Tidak→ ${tidak}` : '')
+  }
+  return `${i + 1} → ${t.join(', ')}`
+}
+
+function LanjutEditor({ steps, i, onChange }) {
+  const s = steps[i]
+  const parts = parseL(s.lanjut)
+  const nextNo = i + 2 <= steps.length ? String(i + 2) : ''
+  const warns = warningsOf(steps, i)
+
+  let body
+  if (s.simbol === 'selesai') {
+    body = <p className="muted">Simbol Selesai tidak punya panah keluar.</p>
+  } else if (s.simbol === 'keputusan') {
+    const ya = parts[0] || nextNo
+    const tidak = parts[1] || ''
+    body = (
+      <>
+        <div className="lanjut-row">
+          <label>Jika Ya →</label>
+          <StepSelect value={ya} steps={steps} from={i} allowBack onChange={(v) => onChange(joinL([v, tidak]))} allowStop={false} />
+        </div>
+        <div className="lanjut-row">
+          <label>Jika Tidak →</label>
+          <StepSelect value={tidak} steps={steps} from={i} allowBack blankLabel="(belum dipilih)" allowStop={false}
+            onChange={(v) => onChange(joinL([ya, v]))} />
+        </div>
+      </>
+    )
+  } else {
+    const first = parts[0] || ''
+    const second = parts[1] || ''
+    body = (
+      <>
+        <div className="lanjut-row">
+          <label>Lanjut ke →</label>
+          <StepSelect value={first} steps={steps} from={i} blankLabel={`(langkah berikutnya${nextNo ? ' = ' + nextNo : ''})`}
+            onChange={(v) => onChange(v === '-' ? '-' : joinL([v || (second ? nextNo : ''), second]))} />
+        </div>
+        {first !== '-' && (
+          <div className="lanjut-row">
+            <label>Cabang ke-2 →</label>
+            <StepSelect value={second} steps={steps} from={i} blankLabel="(tidak ada cabang kedua)" allowStop={false}
+              onChange={(v) => onChange(joinL([first || nextNo, v]))} />
+          </div>
+        )}
+      </>
+    )
+  }
+
+  return (
+    <div className="field">
+      <label>Alur setelah langkah ini</label>
+      {body}
+      <div className="flow">Alur: {summaryOf(steps, i)}</div>
+      {warns.map((w, k) => <div className="warn" key={k}>⚠ {w}</div>)}
+    </div>
+  )
+}
+
 export default function SopForm({ id, onClose }) {
   const [f, setF] = useState(empty)
   const [loading, setLoading] = useState(!!id)
@@ -201,8 +346,15 @@ export default function SopForm({ id, onClose }) {
     if (j < 0 || j >= f.steps.length) return
     const steps = [...f.steps]
     ;[steps[i], steps[j]] = [steps[j], steps[i]]
-    setF({ ...f, steps })
+    // nomor langkah i dan j bertukar, jadi tujuan yang menunjuk keduanya ikut ditukar
+    setF({ ...f, steps: remap(steps, (n) => (n === i + 1 ? j + 1 : n === j + 1 ? i + 1 : n)) })
   }
+
+  const removeStep = (i) =>
+    setF({
+      ...f,
+      steps: remap(f.steps.filter((_, k) => k !== i), (n) => (n === i + 1 ? null : n > i + 1 ? n - 1 : n)),
+    })
 
   const save = async (download) => {
     setSaving(true); setError('')
@@ -281,8 +433,7 @@ export default function SopForm({ id, onClose }) {
                   <span>
                     <button type="button" onClick={() => move(i, -1)}>↑</button>
                     <button type="button" onClick={() => move(i, 1)}>↓</button>
-                    <button type="button" className="danger"
-                      onClick={() => setF({ ...f, steps: f.steps.filter((_, k) => k !== i) })}>Hapus</button>
+                    <button type="button" className="danger" onClick={() => removeStep(i)}>Hapus</button>
                   </span>
                 </div>
                 <div className="field"><label>Kegiatan</label>
@@ -299,10 +450,7 @@ export default function SopForm({ id, onClose }) {
                 <div className="grid">
                   <div className="field"><label>Simbol alur</label>
                     <SymbolPicker value={s.simbol || 'proses'} onChange={(v) => setStep(i, { simbol: v })} /></div>
-                  <div className="field"><label>Lanjut ke langkah nomor</label>
-                    <input placeholder="Kosong = langkah berikutnya" value={s.lanjut || ''}
-                      onChange={(e) => setStep(i, { lanjut: e.target.value })} />
-                    <small>Pada Keputusan, isi dua nomor: Ya, Tidak (mis. 8,9). Simbol Proses juga boleh punya 2 panah keluar: isi dua nomor dipisah koma (mis. 8,9). Isi tanda minus (-) jika alur berhenti. Hanya bisa ke langkah di bawahnya.</small></div>
+                  <LanjutEditor steps={f.steps} i={i} onChange={(v) => setStep(i, { lanjut: v })} />
                 </div>
                 <div className="grid">
                   <div className="field"><label>Persyaratan dan kelengkapan</label>

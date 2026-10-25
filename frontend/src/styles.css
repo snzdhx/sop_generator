@@ -44,3 +44,16 @@ button:disabled { opacity: .5; cursor: wait; }
   .split { grid-template-columns: 1fr; }
   .preview { position: static; height: 80vh; }
 }
+.lanjut-row { display: flex; gap: 8px; align-items: center; margin-bottom: 6px; }
+.lanjut-row label { white-space: nowrap; font-weight: 600; font-size: 12px; min-width: 96px; }
+.flow { font-size: 12px; color: #374151; margin-top: 4px; }
+.warn { font-size: 12px; color: #b45309; margin-top: 4px; }
+.lanjut-row { align-items: flex-start; }
+.lanjut-row > label { padding-top: 8px; }
+.picker { position: relative; flex: 1; min-width: 0; }
+.picker-btn { display: block; width: 100%; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 8px; }
+.picker-menu { position: absolute; z-index: 20; left: 0; right: 0; top: 100%; margin-top: 2px; max-height: 320px; overflow-y: auto; background: #fff; border: 1px solid #cbd5e1; border-radius: 6px; box-shadow: 0 6px 20px rgba(0, 0, 0, .15); }
+.picker-item { display: block; width: 100%; text-align: left; border: 0; border-bottom: 1px solid #f1f5f9; border-radius: 0; white-space: normal; padding: 8px 10px; font-size: 13px; line-height: 1.4; }
+.picker-item:hover { background: #eff6ff; }
+.picker-item.selected { background: #dbeafe; }
+.picker-full { font-size: 12px; color: #374151; margin-top: 4px; white-space: pre-wrap; }
