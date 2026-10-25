@@ -34,6 +34,10 @@ class FlowchartLayout
     private const FORK_FRAC = 0.33; // jarak bus pembagi ke atas simbol tujuan = 33% jarak antar simbol
     /** Dokumen asli: pada pola gabung-pisah hanya simbol terluar (kiri & kanan) yang disambung ke bus gabung. */
     private const JOIN_OUTER_ONLY = true;
+    /** Lompatan garis (jembatan) di titik garis mendatar memotong garis tegak koneksi lain, seperti Word asli. */
+    private const HOP_HW = 55;      // setengah lebar lompatan
+    private const HOP_H = 90;       // tinggi lompatan (ke atas)
+    private const HOP_MARGIN = 60;  // jarak minimum lompatan dari ujung/tekukan garis
     private const CONN_W = 246;
     private const CONN_H = 268;
     private const FONT_PT = 10;
@@ -166,6 +170,9 @@ class FlowchartLayout
     private int $docId = 1000;
     private int $z = 251658240;
     private int $connLetter = 0;
+    /** @var array[] garis yang dicatat dulu (page, pts, arrow, grp) lalu digambar setelah lompatan dihitung */
+    private array $paths = [];
+    private string $grp = '';
 
     public function __construct(array $pelaksana, array $steps, int $totalW = 18715, array $widths = [438, 2997, 2250, 1080, 2250, 2160], array $pelWidths = [])
     {
@@ -456,6 +463,62 @@ class FlowchartLayout
      */
     private function poly(int $page, array $pts, bool $arrow = true): void
     {
+        $this->paths[] = ['page' => $page, 'pts' => $pts, 'arrow' => $arrow, 'grp' => $this->grp];
+    }
+
+    /** Hitung lompatan lalu gambar semua garis yang tercatat (urutan gambar = urutan pencatatan). */
+    private function flushPaths(): void
+    {
+        $vert = [];
+        foreach ($this->paths as $n => $pa) {
+            $c = count($pa['pts']);
+            for ($k = 0; $k < $c - 1; $k++) {
+                [$a, $b] = [$pa['pts'][$k], $pa['pts'][$k + 1]];
+                if ($a[0] === $b[0] && $a[1] !== $b[1]) {
+                    $vert[$pa['page']][] = [$n, $a[0], min($a[1], $b[1]), max($a[1], $b[1])];
+                }
+            }
+        }
+        $hw = self::HOP_HW;
+        $m = self::HOP_MARGIN;
+        foreach ($this->paths as $n => $pa) {
+            $pts = $pa['pts'];
+            $out = [$pts[0]];
+            for ($k = 0; $k < count($pts) - 1; $k++) {
+                [$a, $b] = [$pts[$k], $pts[$k + 1]];
+                if ($a[1] === $b[1] && abs($b[0] - $a[0]) >= 2 * ($hw + $m)) {
+                    $y = $a[1];
+                    $lo = min($a[0], $b[0]) + $hw + $m;
+                    $hi = max($a[0], $b[0]) - $hw - $m;
+                    $xs = [];
+                    foreach ($vert[$pa['page']] ?? [] as [$j, $x, $y1, $y2]) {
+                        if ($this->paths[$j]['grp'] !== $pa['grp'] && $x > $lo && $x < $hi && $y > $y1 + 30 && $y < $y2 - 30) {
+                            $xs[] = $x;
+                        }
+                    }
+                    $dir = $b[0] > $a[0] ? 1 : -1;
+                    sort($xs);
+                    if ($dir < 0) {
+                        $xs = array_reverse($xs);
+                    }
+                    $last = null;
+                    foreach ($xs as $x) {
+                        if ($last !== null && abs($x - $last) < 2 * $hw + $m) {
+                            continue;
+                        }
+                        $last = $x;
+                        array_push($out, [$x - $dir * $hw, $y], [$x - $dir * $hw, $y - self::HOP_H], [$x + $dir * $hw, $y - self::HOP_H], [$x + $dir * $hw, $y]);
+                    }
+                }
+                $out[] = $b;
+            }
+            $this->emitPoly($pa['page'], $out, $pa['arrow']);
+        }
+        $this->paths = [];
+    }
+
+    private function emitPoly(int $page, array $pts, bool $arrow): void
+    {
         $bands = $this->bands($page);
         $nSeg = count($pts) - 1;
         foreach ($bands as [$ri, $lo, $hi]) {
@@ -571,7 +634,7 @@ class FlowchartLayout
         if ($x2 - $x1 < 2) {
             return;
         }
-        $this->add($page, $x1, $y, $x2 - $x1, 0, 'line');
+        $this->poly($page, [[$x1, $y], [$x2, $y]], false);
     }
 
     /** Garis vertikal; jika melewati batas halaman dipecah dengan konektor halaman. */
@@ -904,6 +967,7 @@ class FlowchartLayout
 
         // 3) Gambar
         foreach ($arrows as $a) {
+            $this->grp = $a['i'] . '>' . $a['t'];
             $this->drawArrow($a['i'], $a['t'], $a['s'], $a['c'], $a['entry'], $a['branch']);
         }
         foreach ($labels as [$i, $t, $branch, $k, $ntg]) {
@@ -924,11 +988,14 @@ class FlowchartLayout
             }
         }
         foreach ($old as [$i, $t, $branch, $k, $ntg]) {
+            $this->grp = $i . '>' . $t;
             if (!$branch && $this->trunk($i, $t, $ntg)) {
                 continue;
             }
             $this->connect($i, $t, $branch, $k, $ntg);
         }
+        $this->grp = '';
+        $this->flushPaths();
     }
 
     /**
