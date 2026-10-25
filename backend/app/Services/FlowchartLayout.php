@@ -696,7 +696,9 @@ class FlowchartLayout
             while ($t >= 0 && $t < $cnt && !$this->hasSym($this->steps[$t]) && $t + 1 < $cnt) {
                 $t++;
             }
-            if ($t > $i && $t < $cnt && $this->hasSym($this->steps[$t]) && !in_array($t, $out, true)) {
+            // Keputusan boleh kembali ke langkah sebelumnya (mis. Tidak -> ulangi langkah 4)
+            $okDir = $t > $i || ($st['simbol'] === 'keputusan' && $t >= 0 && $t < $i);
+            if ($okDir && $t < $cnt && $this->hasSym($this->steps[$t]) && !in_array($t, $out, true)) {
                 $out[] = $t;
             }
         }
@@ -811,7 +813,8 @@ class FlowchartLayout
         $viaLane = false;
 
         // Cabang keputusan: lurus ke kolom tujuan jika kolomnya kosong (menghindari simbol bila tidak)
-        if ($branch && $this->straightOk($i, $t, $s, $c)) {
+        $toDec = !$branch && $this->steps[$t]['simbol'] === 'keputusan' && count($this->steps[$i]['pelaksana']) === 1;
+        if (($branch || $toDec) && $this->straightOk($i, $t, $s, $c)) {
             $ymidS = $this->symTop($i) + intdiv($this->symHOf($i), 2);
             $dir = $this->cx[$c] > $this->cx[$s] ? 1 : -1;
             $this->poly($pg, [
@@ -881,6 +884,46 @@ class FlowchartLayout
         $this->poly($pg, $pts);
     }
 
+    /**
+     * Cabang keputusan yang kembali ke langkah sebelumnya (seperti Word asli): keluar dari sisi kanan simbol,
+     * naik lewat jalur di tepi kolom paling kanan (tembus konektor halaman bila beda halaman),
+     * lalu masuk ke sisi kanan simbol tujuan.
+     */
+    private function drawBack(int $i, int $t, int $k): void
+    {
+        $s = $this->steps[$i]['pelaksana'][0];
+        $c = max($this->steps[$t]['pelaksana']);
+        $half = intdiv($this->symW, 2);
+        $pA = $this->rows[$i]['page'];
+        $pB = $this->rows[$t]['page'];
+        $ymidS = $this->symTop($i) + intdiv($this->symHOf($i), 2);
+        $ymidT = $this->symTop($t) + intdiv($this->symHOf($t), 2);
+        $lane = $this->colLeft[$this->n - 1] + $this->pw[$this->n - 1] - 50;
+        $edge = $this->cx[$c] + $half;
+        $x0 = $this->cx[$s] + $half;
+
+        if ($pA === $pB) {
+            $this->poly($pA, [[$x0, $ymidS], [$lane, $ymidS], [$lane, $ymidT], [$edge, $ymidT]]);
+        } else {
+            $this->poly($pA, [[$x0, $ymidS], [$lane, $ymidS]], false);
+            $half2 = intdiv(self::CONN_W, 2);
+            $yTop = $this->hHead + 20;
+            for ($p = $pA; $p > $pB; $p--) {
+                $from = $p === $pA ? $ymidS : $this->pageBottom($p);
+                $to = $yTop + self::CONN_H;
+                if ($from - $to >= 2) {
+                    $this->poly($p, [[$lane, $from], [$lane, $to]], false);
+                }
+                $this->add($p, $lane - $half2, $yTop, self::CONN_W, self::CONN_H, 'offpage');
+                $this->add($p - 1, $lane - $half2, $this->pageBottom($p - 1), self::CONN_W, self::CONN_H, 'offpage');
+            }
+            $this->poly($pB, [[$lane, $this->pageBottom($pB)], [$lane, $ymidT], [$edge, $ymidT]]);
+        }
+        if ($this->steps[$i]['simbol'] === 'keputusan' && $k >= 1) {
+            $this->add($pA, $this->cx[$s] + intdiv($this->symW, 4) + 40, $ymidS - 360, 420, 200, 'label', 'Tidak');
+        }
+    }
+
     private function routeAll(): void
     {
         foreach ($this->steps as $i => $st) {
@@ -896,6 +939,7 @@ class FlowchartLayout
         $arrows = [];
         $old = [];
         $labels = [];
+        $back = [];
         $taken = [];
         foreach ($this->steps as $i => $st) {
             if (!$this->hasSym($st)) {
@@ -903,6 +947,10 @@ class FlowchartLayout
             }
             $tg = $this->targets($i);
             foreach ($tg as $k => $t) {
+                if ($t < $i) {
+                    $back[] = [$i, $t, $k];
+                    continue;
+                }
                 // Output kedua dst. dari simbol mana pun (keputusan maupun proses dengan 2+ tujuan) keluar dari sisi simbol.
                 $branch = $k >= 1 && ($st['simbol'] === 'keputusan' || count($tg) >= 2);
                 // Pola bus (gabung -> batang -> pecah) dipertahankan untuk banyak simbol sumber/tujuan dan lintas halaman;
@@ -992,6 +1040,10 @@ class FlowchartLayout
                 continue;
             }
             $this->connect($i, $t, $branch, $k, $ntg);
+        }
+        foreach ($back as [$i, $t, $k]) {
+            $this->grp = $i . '>' . $t;
+            $this->drawBack($i, $t, $k);
         }
         $this->grp = '';
         $this->flushPaths();
