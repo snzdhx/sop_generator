@@ -169,7 +169,6 @@ class FlowchartLayout
     private array $cx = [];
     private int $docId = 1000;
     private int $z = 251658240;
-    private int $connLetter = 0;
     /** @var array[] garis yang dicatat dulu (page, pts, arrow, grp) lalu digambar setelah lompatan dihitung */
     private array $paths = [];
     private string $grp = '';
@@ -652,15 +651,13 @@ class FlowchartLayout
         $yTop = $this->hHead + 20;
         // Setiap batas halaman (termasuk halaman perantara yang dilewati) diberi sepasang konektor
         for ($p = $pA; $p < $pB; $p++) {
-            $this->connLetter++;
-            $letter = chr(65 + (($this->connLetter - 1) % 26));
             $from = $p === $pA ? $yA : $yTop + self::CONN_H;
             $yEnd = $this->pageBottom($p);
             if ($yEnd - $from >= 2) {
                 $this->poly($p, [[$x, $from], [$x, $yEnd]], false);
             }
-            $this->add($p, $x - $half, $yEnd, self::CONN_W, self::CONN_H, 'offpage', $letter);
-            $this->add($p + 1, $x - $half, $yTop, self::CONN_W, self::CONN_H, 'offpage', $letter);
+            $this->add($p, $x - $half, $yEnd, self::CONN_W, self::CONN_H, 'offpage');
+            $this->add($p + 1, $x - $half, $yTop, self::CONN_W, self::CONN_H, 'offpage');
         }
         $yFrom = $yTop + self::CONN_H;
         if ($yB - $yFrom >= 2) {
