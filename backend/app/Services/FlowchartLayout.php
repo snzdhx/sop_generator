@@ -641,6 +641,12 @@ class FlowchartLayout
             }
         }
 
+        // Simbol Proses: urutan pengisian tidak berpengaruh (tujuan terdekat = jalur utama, sisanya cabang).
+        // Keputusan tetap mengikuti urutan input karena urutannya menentukan Ya/Tidak.
+        if ($st['simbol'] !== 'keputusan') {
+            sort($out);
+        }
+
         return $out;
     }
 
