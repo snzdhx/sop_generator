@@ -585,16 +585,20 @@ class FlowchartLayout
 
             return;
         }
-        $this->connLetter++;
-        $letter = chr(65 + (($this->connLetter - 1) % 26));
         $half = intdiv(self::CONN_W, 2);
-        $yEnd = $this->pageBottom($pA);
-        if ($yEnd - $yA >= 2) {
-            $this->poly($pA, [[$x, $yA], [$x, $yEnd]], false);
-        }
-        $this->add($pA, $x - $half, $yEnd, self::CONN_W, self::CONN_H, 'offpage', $letter);
         $yTop = $this->hHead + 20;
-        $this->add($pB, $x - $half, $yTop, self::CONN_W, self::CONN_H, 'offpage', $letter);
+        // Setiap batas halaman (termasuk halaman perantara yang dilewati) diberi sepasang konektor
+        for ($p = $pA; $p < $pB; $p++) {
+            $this->connLetter++;
+            $letter = chr(65 + (($this->connLetter - 1) % 26));
+            $from = $p === $pA ? $yA : $yTop + self::CONN_H;
+            $yEnd = $this->pageBottom($p);
+            if ($yEnd - $from >= 2) {
+                $this->poly($p, [[$x, $from], [$x, $yEnd]], false);
+            }
+            $this->add($p, $x - $half, $yEnd, self::CONN_W, self::CONN_H, 'offpage', $letter);
+            $this->add($p + 1, $x - $half, $yTop, self::CONN_W, self::CONN_H, 'offpage', $letter);
+        }
         $yFrom = $yTop + self::CONN_H;
         if ($yB - $yFrom >= 2) {
             $this->poly($pB, [[$x, $yFrom], [$x, $yB]], $arrow);
@@ -833,7 +837,8 @@ class FlowchartLayout
             }
             $tg = $this->targets($i);
             foreach ($tg as $k => $t) {
-                $branch = $st['simbol'] === 'keputusan' && $k >= 1;
+                // Output kedua dst. dari simbol mana pun (keputusan maupun proses dengan 2+ tujuan) keluar dari sisi simbol.
+                $branch = $k >= 1 && ($st['simbol'] === 'keputusan' || count($tg) >= 2);
                 // Pola bus (gabung -> batang -> pecah) dipertahankan untuk banyak simbol sumber/tujuan dan lintas halaman;
                 // aturan masuk samping/atas per panah hanya untuk satu sumber -> satu tujuan serta cabang keputusan.
                 $useBus = !$branch && (count($st['pelaksana']) > 1 || count($this->steps[$t]['pelaksana']) > 1);
