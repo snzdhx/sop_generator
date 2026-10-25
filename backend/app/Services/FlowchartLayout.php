@@ -945,6 +945,8 @@ class FlowchartLayout
                         $cands = ['top'];
                     } elseif ($arrows[$n]['branch'] && $this->straightOk($arrows[$n]['i'], $t, $s, $c)) {
                         $cands = ['top']; // cabang lurus selalu masuk dari atas
+                    } elseif ($this->steps[$t]['simbol'] === 'keputusan') {
+                        $cands = ['top']; // masuk ke belah ketupat selalu dari atas; sisi kiri/kanan khusus jalur keluar (Tidak)
                     } else {
                         $pref = $this->cx[$c] > $this->cx[$s] ? 'left' : 'right';
                         $cands = [$pref, 'top', $pref === 'left' ? 'right' : 'left'];
