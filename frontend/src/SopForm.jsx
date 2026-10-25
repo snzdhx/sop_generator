@@ -148,7 +148,6 @@ function PreviewPanel({ form, onClose }) {
 // ---------- Alur "Lanjut ke": parsing, pilihan, peringatan ----------
 const parseL = (s) => String(s || '').split(/[,;]/).map((x) => x.trim()).filter(Boolean)
 const joinL = (a) => a.filter(Boolean).join(',')
-const short = (t) => { const x = (t || '').trim(); return x.length > 30 ? x.slice(0, 30) + '…' : x || '(kosong)' }
 
 // Perbarui semua nomor tujuan ("lanjut") di semua langkah. fn(n) -> nomor baru, atau null = hapus.
 const remap = (steps, fn) => steps.map((s) => {
@@ -158,16 +157,46 @@ const remap = (steps, fn) => steps.map((s) => {
   return { ...s, lanjut: joinL(out.map(String)) }
 })
 
+// Dropdown buatan sendiri: tiap pilihan menampilkan kalimat kegiatan LENGKAP (select bawaan hanya satu baris)
 function StepSelect({ value, onChange, steps, from, allowBack, blankLabel, allowStop = true }) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef(null)
+  useEffect(() => {
+    if (!open) return
+    const close = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false) }
+    const esc = (e) => { if (e.key === 'Escape') setOpen(false) }
+    document.addEventListener('mousedown', close)
+    document.addEventListener('keydown', esc)
+    return () => { document.removeEventListener('mousedown', close); document.removeEventListener('keydown', esc) }
+  }, [open])
+
+  const opts = []
+  if (blankLabel) opts.push({ v: '', title: blankLabel })
+  if (allowStop) opts.push({ v: '-', title: 'Berhenti (tanpa panah)' })
+  steps.forEach((st, j) => {
+    if (j === from || (!allowBack && j < from)) return
+    opts.push({ v: String(j + 1), title: `${j + 1}.`, text: (st.kegiatan || '').trim() || '(kegiatan masih kosong)' })
+  })
+  const cur = opts.find((o) => o.v === String(value ?? ''))
+  const pick = (v) => { setOpen(false); onChange(v) }
+
   return (
-    <select value={value} onChange={(e) => onChange(e.target.value)}>
-      {blankLabel && <option value="">{blankLabel}</option>}
-      {allowStop && <option value="-">Berhenti (tanpa panah)</option>}
-      {steps.map((st, j) => {
-        if (j === from || (!allowBack && j < from)) return null
-        return <option key={j} value={String(j + 1)}>{j + 1}. {short(st.kegiatan)}</option>
-      })}
-    </select>
+    <div className="picker" ref={ref}>
+      <button type="button" className="picker-btn" aria-haspopup="listbox" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
+        {cur ? `${cur.title}${cur.text ? ' ' + cur.text : ''}` : `Langkah ${value} (tidak tersedia)`}
+      </button>
+      {open && (
+        <div className="picker-menu" role="listbox">
+          {opts.map((o) => (
+            <button type="button" role="option" aria-selected={o.v === String(value ?? '')} key={o.v || 'blank'}
+              className={`picker-item${o.v === String(value ?? '') ? ' selected' : ''}`} onClick={() => pick(o.v)}>
+              <strong>{o.title}</strong>{o.text ? ' ' + o.text : ''}
+            </button>
+          ))}
+        </div>
+      )}
+      {!open && cur?.text && <div className="picker-full">{cur.text}</div>}
+    </div>
   )
 }
 
