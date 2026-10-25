@@ -707,6 +707,12 @@ class FlowchartLayout
         // Keputusan tetap mengikuti urutan input karena urutannya menentukan Ya/Tidak.
         if ($st['simbol'] !== 'keputusan') {
             sort($out);
+        } else {
+            // Tujuan yang maju (ke bawah) = Ya, tujuan yang kembali ke langkah sebelumnya = Tidak (ulang),
+            // apa pun urutan pengisiannya. Sesama maju tetap mengikuti urutan input.
+            $fw = array_values(array_filter($out, fn($x) => $x > $i));
+            $bw = array_values(array_filter($out, fn($x) => $x < $i));
+            $out = array_merge($fw, $bw);
         }
 
         return $out;
