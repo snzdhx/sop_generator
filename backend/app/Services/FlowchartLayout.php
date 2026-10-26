@@ -340,9 +340,8 @@ class FlowchartLayout
             }
         }
 
-        $cap = self::PAGE_H - self::BOTTOM_BAND;
-        $page = 0;
-        $y = $this->hHead;
+        // 1) Tinggi dasar tiap baris (tanpa ruang tambahan di awal halaman)
+        $base = [];
         foreach ($this->steps as $i => $st) {
             $h = max(
                 $this->cellTextH($st['kegiatan'] ?? '', $this->wKeg),
@@ -357,11 +356,37 @@ class FlowchartLayout
                     $h = max($h, $this->symHOf($i) + 2 * self::PAD_BUS);
                 }
             }
-            $extra = 0;
-            if ($y + $h > $cap && $y > $this->hHead) {
-                $page++;
+            $base[$i] = $h;
+        }
+
+        // 2) Pembagian halaman: cari jumlah halaman minimum, lalu seimbangkan isi tiap halaman
+        //    supaya halaman terakhir tidak hanya berisi satu baris (langkah terakhir terlempar sendirian
+        //    ke halaman baru dan panahnya harus memakai konektor halaman).
+        $cap = self::PAGE_H - self::BOTTOM_BAND;
+        $pageOf = $this->paginate($base, $cap);
+        $want = $base ? max($pageOf) + 1 : 1;
+        $lo = $this->hHead + self::TOP_BAND + ($base ? max($base) : 0);
+        $hi = $cap;
+        while ($lo < $hi) {
+            $mid = intdiv($lo + $hi, 2);
+            if (max($this->paginate($base, $mid) ?: [0]) + 1 <= $want) {
+                $hi = $mid;
+            } else {
+                $lo = $mid + 1;
+            }
+        }
+        $pageOf = $this->paginate($base, min($lo, $cap));
+
+        // 3) Posisi tiap baris pada halamannya
+        $page = 0;
+        $y = $this->hHead;
+        foreach ($this->steps as $i => $st) {
+            $h = $base[$i];
+            if ($pageOf[$i] !== $page) {
+                $page = $pageOf[$i];
                 $y = $this->hHead;
             }
+            $extra = 0;
             $brk = ($y === $this->hHead && $page > 0);
             if ($brk) {
                 $extra = self::TOP_BAND;
@@ -371,6 +396,31 @@ class FlowchartLayout
             $y += $h + 8;
         }
         $this->pages = $page + 1;
+    }
+
+    /**
+     * Pembagian halaman serakah dengan batas tinggi $cap (twips). Baris tidak dipotong; baris pertama
+     * di halaman berikutnya mendapat ruang tambahan TOP_BAND. Mengembalikan nomor halaman tiap baris.
+     *
+     * @param  int[]  $base tinggi dasar tiap baris
+     * @return int[]
+     */
+    private function paginate(array $base, int $cap): array
+    {
+        $out = [];
+        $page = 0;
+        $y = $this->hHead;
+        foreach ($base as $i => $h) {
+            if ($y + $h > $cap && $y > $this->hHead) {
+                $page++;
+                $y = $this->hHead;
+            }
+            $need = $h + ($y === $this->hHead && $page > 0 ? self::TOP_BAND : 0);
+            $out[$i] = $page;
+            $y += $need + 8;
+        }
+
+        return $out;
     }
 
     private function symTop(int $i): int
