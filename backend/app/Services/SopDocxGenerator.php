@@ -21,6 +21,8 @@ class SopDocxGenerator
     private const TOTAL_LANDSCAPE = 18715; // sama dengan tabel prosedur dokumen asli // lebar konten tabel prosedur (A4 landscape, twips)
     private const FONT  = ['name' => 'Arial', 'size' => 10];
     private const GRAY  = 'D9D9D9';
+    /** Jabatan pada tabel Paraf Hirarki di header (sesuai dokumen asli). */
+    private const PARAF_JABATAN = ['Sekretaris BKPSDM', 'Ka. Sub Bag. Umum dan Kepegawaian'];
 
     public function generate(Sop $sop): string
     {
@@ -97,7 +99,7 @@ class SopDocxGenerator
     private function header($section, Sop $sop): void
     {
         $table = $this->table($section, self::TOTAL_PORTRAIT);
-        $colL = 4300;
+        $colL = 8000;
         $colLabel = 2200;
         $colVal = self::TOTAL_PORTRAIT - $colL - $colLabel;
 
@@ -121,8 +123,7 @@ class SopDocxGenerator
                 if (is_file($logo)) {
                     $c->addImage($logo, ['width' => 56, 'height' => 92, 'alignment' => Jc::CENTER]);
                 }
-                $c->addTextBreak(1);
-                $this->p($c, $sop->instansi, ['bold' => true], Jc::CENTER);
+                $this->parafHirarki($c, $sop->instansi, $colL - 200);
             } else {
                 $table->addCell($colL, $this->cell(['vMerge' => 'continue']));
             }
@@ -140,6 +141,48 @@ class SopDocxGenerator
             } else {
                 $this->p($vc, $value, $label === 'Nama SOP:' ? ['bold' => true] : []);
             }
+        }
+    }
+
+    /**
+     * Blok di sel kiri header: nama instansi (kiri) dan tabel "Paraf Hirarki" (kanan), seperti dokumen Word asli.
+     * Satu tabel bersarang; sel nama instansi tanpa garis dan digabung vertikal di sepanjang tabel paraf.
+     */
+    private function parafHirarki($cell, string $instansi, int $width): void
+    {
+        $wJab = 1800;
+        $wParaf = 650;
+        $wTgl = 800;
+        $wParafTotal = $wJab + $wParaf + $wTgl;
+        $wText = $width - $wParafTotal;
+        $f = ['name' => 'Arial', 'size' => 8];
+
+        $t = $cell->addTable([
+            'cellMargin' => 40,
+            'layout'     => TableStyle::LAYOUT_FIXED,
+            'unit'       => TblWidth::TWIP,
+            'width'      => $width,
+        ]);
+
+        $text = fn(bool $first) => $t->addCell($wText, $first ? ['vMerge' => 'restart', 'valign' => 'top'] : ['vMerge' => 'continue']);
+
+        $t->addRow(250, ['cantSplit' => true]);
+        $c = $text(true);
+        $c->addText($instansi, ['name' => 'Arial', 'size' => 10], ['alignment' => Jc::CENTER, 'spaceAfter' => 0]);
+        $this->p($t->addCell($wParafTotal, $this->cell(['gridSpan' => 3, 'valign' => 'center'])), 'Paraf Hirarki', $f + ['bold' => true], Jc::CENTER);
+
+        $t->addRow(250, ['cantSplit' => true]);
+        $text(false);
+        foreach ([[$wJab, 'Jabatan'], [$wParaf, 'Paraf'], [$wTgl, 'Tanggal']] as [$w, $label]) {
+            $this->p($t->addCell($w, $this->cell(['valign' => 'center'])), $label, $f, Jc::CENTER);
+        }
+
+        foreach (self::PARAF_JABATAN as $jabatan) {
+            $t->addRow(400, ['cantSplit' => true]);
+            $text(false);
+            $this->p($t->addCell($wJab, $this->cell(['valign' => 'center'])), $jabatan, $f);
+            $this->p($t->addCell($wParaf, $this->cell()), '', $f);
+            $this->p($t->addCell($wTgl, $this->cell()), '', $f);
         }
     }
 
