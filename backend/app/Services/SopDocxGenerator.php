@@ -183,24 +183,24 @@ class SopDocxGenerator
 
         // Baris 1: nama instansi, penuh selebar blok
         $t->addRow(null, ['cantSplit' => true]);
-        $t->addCell($width, ['gridSpan' => 4, 'valign' => 'bottom'])->addText($line1, $font, $center);
+        $t->addCell($width, $this->hidden(['gridSpan' => 4, 'valign' => 'bottom']))->addText($line1, $font, $center);
 
         // Baris 2: sel kiri (sambungan nama instansi) digabung vertikal sepanjang tabel paraf
         $t->addRow(250, ['cantSplit' => true]);
-        $c = $t->addCell($wText, ['vMerge' => 'restart', 'valign' => 'top']);
+        $c = $t->addCell($wText, $this->hidden(['vMerge' => 'restart', 'valign' => 'top']));
         // Indent kanan negatif: teks tetap rata tengah terhadap lebar penuh blok (di bawah baris 1), bukan hanya sel kiri
         $c->addText($line2, $font, $center + ['indentation' => ['right' => -$wParafTotal]]);
         $this->p($t->addCell($wParafTotal, $this->cell(['gridSpan' => 3, 'valign' => 'center'])), 'Paraf Hirarki', $f + ['bold' => true], Jc::CENTER);
 
         $t->addRow(250, ['cantSplit' => true]);
-        $t->addCell($wText, ['vMerge' => 'continue']);
+        $t->addCell($wText, $this->hidden(['vMerge' => 'continue']));
         foreach ([[$wJab, 'Jabatan'], [$wParaf, 'Paraf'], [$wTgl, 'Tanggal']] as [$w, $label]) {
             $this->p($t->addCell($w, $this->cell(['valign' => 'center'])), $label, $f, Jc::CENTER);
         }
 
         foreach ($jabatanList as $jabatan) {
             $t->addRow(400, ['cantSplit' => true]);
-            $t->addCell($wText, ['vMerge' => 'continue']);
+            $t->addCell($wText, $this->hidden(['vMerge' => 'continue']));
             $this->p($t->addCell($wJab, $this->cell(['valign' => 'center'])), $jabatan, $f);
             $this->p($t->addCell($wParaf, $this->cell()), '', $f);
             $this->p($t->addCell($wTgl, $this->cell()), '', $f);
@@ -340,6 +340,15 @@ class SopDocxGenerator
             'unit'        => TblWidth::TWIP,
             'width'       => $width,
         ]);
+    }
+
+    /**
+     * Sel "tanpa garis": border putih tipis supaya Word tidak menampilkan garis bantu (gridlines) putus-putus.
+     * Tidak terlihat di cetakan dan kalah dari border hitam yang lebih tebal di sebelahnya.
+     */
+    private function hidden(array $extra = []): array
+    {
+        return array_merge(['borderSize' => 4, 'borderColor' => 'FFFFFF'], $extra);
     }
 
     private function cell(array $extra = []): array
