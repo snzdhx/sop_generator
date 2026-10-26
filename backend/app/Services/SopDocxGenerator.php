@@ -186,9 +186,9 @@ class SopDocxGenerator
             [$line1, $line2] = [$m[1], $m[2]];
         }
 
-        $wJab = 1600;
-        $wParaf = 600;
-        $wTgl = 700;
+        $wJab = 1750;
+        $wParaf = 800;
+        $wTgl = 825;
         $wParafTotal = $wJab + $wParaf + $wTgl;
         $wText = $width - $wParafTotal;
         $f = ['name' => 'Arial', 'size' => 8];
