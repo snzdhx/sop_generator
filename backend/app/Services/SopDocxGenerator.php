@@ -21,6 +21,7 @@ class SopDocxGenerator
     private const TOTAL_LANDSCAPE = 18715; // sama dengan tabel prosedur dokumen asli // lebar konten tabel prosedur (A4 landscape, twips)
     private const FONT  = ['name' => 'Arial', 'size' => 10];
     private const GRAY  = 'D9D9D9';
+    private const HDR_ROW_PENGESAH = 1800; // tinggi baris "Disahkan oleh" (menentukan tinggi sel logo di kiri)
     /** Jabatan pada tabel Paraf Hirarki di header (bawaan bila SOP belum mengisi). */
     private const PARAF_JABATAN = ['Sekretaris BKPSDM', 'Ka. Sub Bag. Umum dan Kepegawaian'];
 
@@ -115,15 +116,14 @@ class SopDocxGenerator
         ];
 
         foreach ($rows as $i => [$label, $value]) {
-            $table->addRow($label === 'Disahkan oleh' ? 1700 : 400, ['cantSplit' => true]);
+            $table->addRow($label === 'Disahkan oleh' ? self::HDR_ROW_PENGESAH : 400, ['cantSplit' => true]);
 
             if ($i === 0) {
                 $c = $table->addCell($colL, $this->cell(['vMerge' => 'restart', 'valign' => 'center']));
                 $logo = resource_path('sop/logo.png');
-                if (is_file($logo)) {
-                    $c->addImage($logo, ['width' => 56, 'height' => 92, 'alignment' => Jc::CENTER]);
-                }
-                $this->parafHirarki($c, $sop->instansi, $colL - 200, $sop->paraf_hirarki ?? self::PARAF_JABATAN);
+                // Tinggi sel kiri = 5 baris @400 + baris pengesah, dikurangi margin sel atas-bawah (2 x 70)
+                $blockH = 5 * 400 + self::HDR_ROW_PENGESAH - 140;
+                $this->parafHirarki($c, $sop->instansi, $colL - 200, $sop->paraf_hirarki ?? self::PARAF_JABATAN, is_file($logo) ? $logo : null, $blockH);
             } else {
                 $table->addCell($colL, $this->cell(['vMerge' => 'continue']));
             }
@@ -149,13 +149,18 @@ class SopDocxGenerator
      * baris berikutnya ("KOTA ...") berada di kiri tabel "Paraf Hirarki" yang menempel di kanan bawah.
      * Satu tabel bersarang tanpa garis; hanya sel paraf yang bergaris.
      */
-    private function parafHirarki($cell, string $instansi, int $width, array $jabatanList): void
+    private function parafHirarki($cell, string $instansi, int $width, array $jabatanList, ?string $logo = null, int $blockH = 3500): void
     {
         $jabatanList = array_values(array_filter(array_map('trim', $jabatanList), fn($v) => $v !== ''));
         $font = ['name' => 'Arial', 'size' => 9];
         $center = ['alignment' => Jc::CENTER, 'spaceAfter' => 0];
 
+        $logoStyle = ['width' => 52, 'height' => 86, 'alignment' => Jc::CENTER];
+
         if (!$jabatanList) {
+            if ($logo) {
+                $cell->addImage($logo, $logoStyle);
+            }
             $cell->addText($instansi, $font, $center);
             return;
         }
@@ -181,25 +186,30 @@ class SopDocxGenerator
             'width'      => $width,
         ]);
 
-        // Baris 1: nama instansi, penuh selebar blok
-        $t->addRow(null, ['cantSplit' => true]);
-        $t->addCell($width, $this->hidden(['gridSpan' => 4, 'valign' => 'bottom']))->addText($line1, $font, $center);
+        $rowH = [300, 300, 450];
+        $top = max(1500, $blockH - $rowH[0] - $rowH[1] - $rowH[2] * count($jabatanList));
+        $t->addRow($top, ['cantSplit' => true, 'exactHeight' => true]);
+        $c1 = $t->addCell($width, $this->hidden(['gridSpan' => 4, 'valign' => 'bottom']));
+        if ($logo) {
+            $c1->addImage($logo, $logoStyle);
+        }
+        $c1->addText($line1, $font, $center);
 
         // Baris 2: sel kiri (sambungan nama instansi) digabung vertikal sepanjang tabel paraf
-        $t->addRow(250, ['cantSplit' => true]);
+        $t->addRow($rowH[0], ['cantSplit' => true, 'exactHeight' => true]);
         $c = $t->addCell($wText, $this->hidden(['vMerge' => 'restart', 'valign' => 'top']));
         // Indent kanan negatif: teks tetap rata tengah terhadap lebar penuh blok (di bawah baris 1), bukan hanya sel kiri
         $c->addText($line2, $font, $center + ['indentation' => ['right' => -$wParafTotal]]);
         $this->p($t->addCell($wParafTotal, $this->cell(['gridSpan' => 3, 'valign' => 'center'])), 'Paraf Hirarki', $f + ['bold' => true], Jc::CENTER);
 
-        $t->addRow(250, ['cantSplit' => true]);
+        $t->addRow($rowH[1], ['cantSplit' => true, 'exactHeight' => true]);
         $t->addCell($wText, $this->hidden(['vMerge' => 'continue']));
         foreach ([[$wJab, 'Jabatan'], [$wParaf, 'Paraf'], [$wTgl, 'Tanggal']] as [$w, $label]) {
             $this->p($t->addCell($w, $this->cell(['valign' => 'center'])), $label, $f, Jc::CENTER);
         }
 
         foreach ($jabatanList as $jabatan) {
-            $t->addRow(400, ['cantSplit' => true]);
+            $t->addRow($rowH[2], ['cantSplit' => true, 'exactHeight' => true]);
             $t->addCell($wText, $this->hidden(['vMerge' => 'continue']));
             $this->p($t->addCell($wJab, $this->cell(['valign' => 'center'])), $jabatan, $f);
             $this->p($t->addCell($wParaf, $this->cell()), '', $f);
