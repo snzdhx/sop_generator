@@ -23,7 +23,7 @@ class SopDocxGenerator
     private const FONT  = ['name' => 'Arial', 'size' => 10];
     private const GRAY  = 'D9D9D9';
     private const TAIL_P = 20; // tinggi paragraf wajib setelah tabel bersarang (twips)
-    private const HDR_ROW_PENGESAH = 1800; // tinggi baris "Disahkan oleh" (menentukan tinggi sel logo di kiri)
+    private const HDR_ROW_PENGESAH = 1950; // tinggi baris "Disahkan oleh" (menentukan tinggi sel logo di kiri)
     /** Jabatan pada tabel Paraf Hirarki di header (bawaan bila SOP belum mengisi). */
     private const PARAF_JABATAN = ['Sekretaris BKPSDM', 'Ka. Sub Bag. Umum dan Kepegawaian'];
 
@@ -165,10 +165,10 @@ class SopDocxGenerator
         $font = ['name' => 'Arial', 'size' => 9];
         $center = ['alignment' => Jc::CENTER, 'spaceAfter' => 0];
 
-        // Proporsi sama dengan logo di dokumen Word asli (lebih lebar dari file aslinya, 64 x 76 pt)
-        $logoStyle = ['width' => 64, 'height' => 76, 'alignment' => Jc::CENTER];
+        // Proporsi sama dengan logo di dokumen Word asli (lebih lebar dari file aslinya, 68 x 84 pt)
+        $logoStyle = ['width' => 68, 'height' => 84, 'alignment' => Jc::CENTER];
         // Jarak logo -> nama instansi
-        $line1Style = $center + ['spaceBefore' => 200];
+        $line1Style = $center + ['spaceBefore' => 260];
 
         if (!$jabatanList) {
             if ($logo) {
