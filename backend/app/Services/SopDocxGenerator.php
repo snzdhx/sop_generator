@@ -185,10 +185,13 @@ class SopDocxGenerator
         $pw = $L->pw;
         $wMutu = $wSyr + $wWkt + $wOut + $wKet;
 
-        $table = $this->table($section, self::TOTAL_LANDSCAPE);
         $head = $this->cell(['bgColor' => self::GRAY, 'valign' => 'center']);
         $bold = ['bold' => true];
 
+        // Satu tabel per halaman (header ditulis ulang di tiap tabel). Pemisah halaman memakai paragraf
+        // "page break before" di LUAR tabel, karena LibreOffice mengabaikan page break di dalam sel tabel
+        // sehingga pembagian halaman hasil FlowchartLayout tidak diikuti.
+        $header = function ($table) use ($L, $n, $pw, $wNo, $wKeg, $wSyr, $wWkt, $wOut, $wKet, $wMutu, $pelaksana, $head, $bold) {
         // Baris header 1
         $table->addRow($L->headH[0], ['tblHeader' => true, 'cantSplit' => true, 'exactHeight' => true]);
         $this->p($table->addCell($wNo, $this->cell(['bgColor' => self::GRAY, 'valign' => 'center', 'vMerge' => 'restart'])), 'No', $bold, Jc::CENTER);
@@ -213,11 +216,20 @@ class SopDocxGenerator
         foreach ($widths as $i => $w) {
             $this->p($table->addCell($w, $this->cell(['bgColor' => self::GRAY, 'valign' => 'center'])), (string) ($i + 1), ['size' => 9], Jc::CENTER);
         }
+        };
+
+        $table = $this->table($section, self::TOTAL_LANDSCAPE);
+        $header($table);
 
         // Baris langkah
         $markers = [];
         foreach ($steps as $i => $step) {
             $r = $L->rows[$i];
+            if ($r['brk']) {
+                $section->addText('', ['name' => 'Arial', 'size' => 1], ['pageBreakBefore' => true, 'spaceBefore' => 0, 'spaceAfter' => 0]);
+                $table = $this->table($section, self::TOTAL_LANDSCAPE);
+                $header($table);
+            }
             // Tinggi baris dikunci EXACT sesuai hitungan FlowchartLayout, supaya posisi simbol/panah
             // (offset absolut) tidak bergeser kalau Word/LibreOffice membungkus teks sedikit berbeda.
             $table->addRow($r['h'], ['cantSplit' => true, 'exactHeight' => true]);
@@ -226,8 +238,7 @@ class SopDocxGenerator
                 $table->addCell($wNo, $this->cell(['valign' => 'center'])),
                 ($i + 1) . '.',
                 [],
-                Jc::CENTER,
-                $r['brk'] ? ['pageBreakBefore' => true] : []
+                Jc::CENTER
             );
             $this->fill($table->addCell($wKeg, $this->cell(['valign' => 'center'])), $step['kegiatan'] ?? '', Jc::BOTH);
 
