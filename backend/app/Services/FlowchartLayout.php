@@ -1012,7 +1012,7 @@ class FlowchartLayout
                 // Pola bus (gabung -> batang -> pecah) dipertahankan untuk banyak simbol sumber/tujuan dan lintas halaman;
                 // aturan masuk samping/atas per panah hanya untuk satu sumber -> satu tujuan serta cabang keputusan.
                 $useBus = !$branch && (count($st['pelaksana']) > 1 || count($this->steps[$t]['pelaksana']) > 1);
-                if ($useBus || $this->rows[$i]['page'] !== $this->rows[$t]['page']) {
+                if ($useBus || $this->sideEligible($i, $t, $branch) || $this->rows[$i]['page'] !== $this->rows[$t]['page']) {
                     $old[] = [$i, $t, $branch, $k, count($tg)];
                     foreach ($this->steps[$t]['pelaksana'] as $c) {
                         $taken[$t][$c]['top'] = true;
@@ -1092,6 +1092,9 @@ class FlowchartLayout
         }
         foreach ($old as [$i, $t, $branch, $k, $ntg]) {
             $this->grp = $i . '>' . $t;
+            if ($this->sideRoute($i, $t, $branch)) {
+                continue;
+            }
             if (!$branch && $this->trunk($i, $t, $ntg)) {
                 continue;
             }
@@ -1258,6 +1261,43 @@ class FlowchartLayout
         if ($isDec && $ntg > 1) {
             $this->add($pA, $this->cx[$SA[0]] + 40, $yA + 10, 420, 200, 'label', 'Ya');
         }
+
+        return true;
+    }
+
+    /**
+     * Panah lompat (melewati >= 1 baris) dari satu simbol Proses ke satu simbol di kolom lain, tanpa simbol
+     * penghalang di kolom tujuan: Word asli menggambarnya lewat sisi simbol, bukan turun di kolom sumber.
+     */
+    private function sideEligible(int $i, int $t, bool $branch): bool
+    {
+        $st = $this->steps[$i];
+        $SA = $st['pelaksana'];
+        $SB = $this->steps[$t]['pelaksana'];
+        if ($branch || $st['simbol'] === 'keputusan' || $t < $i + 2 || count($SA) !== 1 || count($SB) !== 1 || $SA[0] === $SB[0]) {
+            return false;
+        }
+
+        return $this->straightOk($i, $t, $SA[0], $SB[0]);
+    }
+
+    /**
+     * Keluar dari sisi simbol sumber, mendatar ke kolom tujuan, lalu turun lurus di kolom tujuan
+     * (tembus konektor halaman jika beda halaman), seperti Word asli. False jika tidak memenuhi syarat.
+     */
+    private function sideRoute(int $i, int $t, bool $branch): bool
+    {
+        if (!$this->sideEligible($i, $t, $branch)) {
+            return false;
+        }
+        $s = $this->steps[$i]['pelaksana'][0];
+        $c = $this->steps[$t]['pelaksana'][0];
+        $pA = $this->rows[$i]['page'];
+        $pB = $this->rows[$t]['page'];
+        $dir = $this->cx[$c] > $this->cx[$s] ? 1 : -1;
+        $ymid = $this->symTop($i) + intdiv($this->symHOf($i), 2);
+        $this->hline($pA, $this->cx[$s] + $dir * intdiv($this->symW, 2), $this->cx[$c], $ymid);
+        $this->vline($this->cx[$c], $pA, $ymid, $pB, $this->symTop($t), true);
 
         return true;
     }
