@@ -110,7 +110,7 @@ class SopDocxGenerator
     private function header($section, Sop $sop): void
     {
         $table = $this->table($section, self::TOTAL_PORTRAIT);
-        $colL = 8000;
+        $colL = intdiv(self::TOTAL_PORTRAIT, 2); // sejajar dengan garis kolom tabel Dasar Hukum di bawahnya
         $colLabel = 2200;
         $colVal = self::TOTAL_PORTRAIT - $colL - $colLabel;
 
