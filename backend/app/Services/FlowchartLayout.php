@@ -1205,6 +1205,11 @@ class FlowchartLayout
             return true;
         }
 
+        // ---------- Pola Word asli: banyak sumber -> satu tujuan ----------
+        if (!$isDec && $nA > 1 && $nB === 1) {
+            return $this->joinToOne($i, $t, $yJoin, $yFork);
+        }
+
         // ---------- Pola lama: tujuan tunggal / sumber keputusan ----------
         if ($nA === 1) {
             $tc = $SA[0];
@@ -1276,6 +1281,62 @@ class FlowchartLayout
         }
         if ($isDec && $ntg > 1) {
             $this->add($pA, $this->cx[$SA[0]] + 40, $yA + 10, 420, 200, 'label', 'Ya');
+        }
+
+        return true;
+    }
+
+    /**
+     * Banyak sumber -> satu tujuan (seperti Word asli):
+     *  - bus gabung hanya selebar simbol-simbol sumber; batang keluar dari TITIK TENGAH bus
+     *    (bukan dari kolom tujuan), sehingga batang tidak harus segaris dengan tujuan;
+     *  - batang segaris dengan tujuan                  -> turun lurus, panah masuk dari atas;
+     *  - tujuan satu kolom dengan salah satu sumber    -> batang turun lalu menekuk, masuk dari SISI simbol tujuan;
+     *  - tujuan di kolom lain                          -> pola Z: turun, bergeser mendatar di atas tujuan, turun masuk dari atas.
+     * Mengembalikan false jika batang bertabrakan dengan simbol di baris antara (dipakai rute cadangan).
+     */
+    private function joinToOne(int $i, int $t, int $yJoin, int $yFork): bool
+    {
+        $SA = $this->steps[$i]['pelaksana'];
+        $c = $this->steps[$t]['pelaksana'][0];
+        $pA = $this->rows[$i]['page'];
+        $pB = $this->rows[$t]['page'];
+        $yA = $this->symBot($i);
+        $yBt = $this->symTop($t);
+        $ymidT = $yBt + intdiv($this->symHOf($t), 2);
+        $half = intdiv($this->symW, 2);
+
+        $xsA = array_map(fn($k) => $this->cx[$k], $SA);
+        $tx = intdiv(min($xsA) + max($xsA), 2);
+        $xc = $this->cx[$c];
+        if ($this->collidesX($tx, $i, $t)) {
+            return false;
+        }
+        if ($pA === $pB && $yFork <= $yJoin + 20) {
+            $yFork = intdiv($yJoin + $yBt, 2);
+        }
+
+        // Semua sumber turun ke bus gabung; bus hanya sepanjang simbol sumber
+        foreach ($xsA as $x) {
+            $this->vline($x, $pA, $yA, $pA, $yJoin, false);
+        }
+        $this->hline($pA, min($xsA), max($xsA), $yJoin);
+
+        if (abs($tx - $xc) <= $half - 50) {
+            // Batang sudah di atas simbol tujuan
+            $this->vline($tx, $pA, $yJoin, $pB, $yBt, true);
+        } elseif (in_array($c, $SA, true)) {
+            // Masuk dari sisi simbol tujuan yang menghadap batang
+            $dir = $xc > $tx ? 1 : -1;
+            $this->vline($tx, $pA, $yJoin, $pB, $ymidT, true, $xc - $dir * $half);
+        } elseif ($pA === $pB) {
+            // Pola Z dalam satu halaman: satu garis menekuk dengan kepala panah di simbol tujuan
+            $this->poly($pA, [[$tx, $yJoin], [$tx, $yFork], [$xc, $yFork], [$xc, $yBt]]);
+        } else {
+            // Pola Z lintas halaman: batang tembus konektor halaman, lalu menekuk di halaman tujuan
+            $this->vline($tx, $pA, $yJoin, $pB, $yFork, false);
+            $this->hline($pB, min($tx, $xc), max($tx, $xc), $yFork);
+            $this->vline($xc, $pB, $yFork, $pB, $yBt, true);
         }
 
         return true;
