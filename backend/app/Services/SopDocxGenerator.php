@@ -61,9 +61,7 @@ class SopDocxGenerator
         $path = sys_get_temp_dir() . '/' . Str::uuid() . '.docx';
         IOFactory::createWriter($word, 'Word2007')->save($path);
 
-        if ($markers) {
-            $this->injectShapes($path, $markers);
-        }
+        $this->postProcess($path, $markers);
 
         return $path;
     }
@@ -72,7 +70,7 @@ class SopDocxGenerator
      * PHPWord tidak bisa menggambar bentuk/panah. Sel pelaksana diberi penanda teks (@@SHP_baris_kolom@@),
      * lalu setelah file disimpan penanda itu diganti dengan XML bentuk DrawingML hasil FlowchartLayout.
      */
-    private function injectShapes(string $path, array $markers): void
+    private function postProcess(string $path, array $markers): void
     {
         $zip = new \ZipArchive();
         if ($zip->open($path) !== true) {
@@ -80,14 +78,17 @@ class SopDocxGenerator
         }
         $xml = $zip->getFromName('word/document.xml');
         if (is_string($xml)) {
-            $out = preg_replace_callback(
-                '#<w:r>(?:(?!</w:r>).)*?(@@SHP_\d+_\d+@@)(?:(?!</w:r>).)*?</w:r>#s',
-                fn($m) => $markers[$m[1]] ?? '',
-                $xml
-            );
-            if (is_string($out)) {
-                $zip->addFromString('word/document.xml', $out);
+            // PHPWord menulis firstLine="0" bersama hanging="..." (saling bertentangan) sehingga
+            // hanging indent daftar bernomor tidak berlaku; buang firstLine agar baris lanjutan rata di bawah teks.
+            $out = preg_replace('#\s+w:firstLine="0"(\s+w:hanging="\d+")#', '$1', $xml) ?? $xml;
+            if ($markers) {
+                $out = preg_replace_callback(
+                    '#<w:r>(?:(?!</w:r>).)*?(@@SHP_\d+_\d+@@)(?:(?!</w:r>).)*?</w:r>#s',
+                    fn($m) => $markers[$m[1]] ?? '',
+                    $out
+                ) ?? $out;
             }
+            $zip->addFromString('word/document.xml', $out);
         }
         $zip->close();
     }
