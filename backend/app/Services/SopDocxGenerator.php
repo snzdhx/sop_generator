@@ -145,20 +145,31 @@ class SopDocxGenerator
     }
 
     /**
-     * Blok di sel kiri header: nama instansi (kiri) dan tabel "Paraf Hirarki" (kanan), seperti dokumen Word asli.
-     * Satu tabel bersarang; sel nama instansi tanpa garis dan digabung vertikal di sepanjang tabel paraf.
+     * Blok di sel kiri header (seperti dokumen Word asli): baris pertama nama instansi memanjang penuh,
+     * baris berikutnya ("KOTA ...") berada di kiri tabel "Paraf Hirarki" yang menempel di kanan bawah.
+     * Satu tabel bersarang tanpa garis; hanya sel paraf yang bergaris.
      */
     private function parafHirarki($cell, string $instansi, int $width, array $jabatanList): void
     {
         $jabatanList = array_values(array_filter(array_map('trim', $jabatanList), fn($v) => $v !== ''));
+        $font = ['name' => 'Arial', 'size' => 9];
+        $center = ['alignment' => Jc::CENTER, 'spaceAfter' => 0];
+
         if (!$jabatanList) {
-            // Tanpa jabatan: hanya nama instansi, tanpa tabel paraf
-            $cell->addText($instansi, ['name' => 'Arial', 'size' => 10], ['alignment' => Jc::CENTER, 'spaceAfter' => 0]);
+            $cell->addText($instansi, $font, $center);
             return;
         }
-        $wJab = 1800;
-        $wParaf = 650;
-        $wTgl = 800;
+
+        // Pisahkan sebelum kata KOTA / KABUPATEN / PROVINSI: bagian pertama penuh, sisanya di sebelah tabel paraf
+        $line1 = $instansi;
+        $line2 = '';
+        if (preg_match('/^(.*?)\s+((?:KOTA|KABUPATEN|PROVINSI)\b.*)$/iu', $instansi, $m)) {
+            [$line1, $line2] = [$m[1], $m[2]];
+        }
+
+        $wJab = 1600;
+        $wParaf = 600;
+        $wTgl = 700;
         $wParafTotal = $wJab + $wParaf + $wTgl;
         $wText = $width - $wParafTotal;
         $f = ['name' => 'Arial', 'size' => 8];
@@ -170,22 +181,26 @@ class SopDocxGenerator
             'width'      => $width,
         ]);
 
-        $text = fn(bool $first) => $t->addCell($wText, $first ? ['vMerge' => 'restart', 'valign' => 'top'] : ['vMerge' => 'continue']);
+        // Baris 1: nama instansi, penuh selebar blok
+        $t->addRow(null, ['cantSplit' => true]);
+        $t->addCell($width, ['gridSpan' => 4, 'valign' => 'bottom'])->addText($line1, $font, $center);
 
+        // Baris 2: sel kiri (sambungan nama instansi) digabung vertikal sepanjang tabel paraf
         $t->addRow(250, ['cantSplit' => true]);
-        $c = $text(true);
-        $c->addText($instansi, ['name' => 'Arial', 'size' => 10], ['alignment' => Jc::CENTER, 'spaceAfter' => 0]);
+        $c = $t->addCell($wText, ['vMerge' => 'restart', 'valign' => 'top']);
+        // Indent kanan negatif: teks tetap rata tengah terhadap lebar penuh blok (di bawah baris 1), bukan hanya sel kiri
+        $c->addText($line2, $font, $center + ['indentation' => ['right' => -$wParafTotal]]);
         $this->p($t->addCell($wParafTotal, $this->cell(['gridSpan' => 3, 'valign' => 'center'])), 'Paraf Hirarki', $f + ['bold' => true], Jc::CENTER);
 
         $t->addRow(250, ['cantSplit' => true]);
-        $text(false);
+        $t->addCell($wText, ['vMerge' => 'continue']);
         foreach ([[$wJab, 'Jabatan'], [$wParaf, 'Paraf'], [$wTgl, 'Tanggal']] as [$w, $label]) {
             $this->p($t->addCell($w, $this->cell(['valign' => 'center'])), $label, $f, Jc::CENTER);
         }
 
         foreach ($jabatanList as $jabatan) {
             $t->addRow(400, ['cantSplit' => true]);
-            $text(false);
+            $t->addCell($wText, ['vMerge' => 'continue']);
             $this->p($t->addCell($wJab, $this->cell(['valign' => 'center'])), $jabatan, $f);
             $this->p($t->addCell($wParaf, $this->cell()), '', $f);
             $this->p($t->addCell($wTgl, $this->cell()), '', $f);
