@@ -165,8 +165,8 @@ class SopDocxGenerator
         $font = ['name' => 'Arial', 'size' => 9];
         $center = ['alignment' => Jc::CENTER, 'spaceAfter' => 0];
 
-        // Proporsi sama dengan logo di dokumen Word asli (lebih lebar dari file aslinya, 68 x 84 pt)
-        $logoStyle = ['width' => 68, 'height' => 84, 'alignment' => Jc::CENTER];
+        // Proporsi asli logo (158 x 221 px = 0,715) agar tidak melebar/gepeng: 60 x 84 pt
+        $logoStyle = ['width' => 60, 'height' => 84, 'alignment' => Jc::CENTER];
         // Jarak logo -> nama instansi
         $line1Style = $center + ['spaceBefore' => 260];
 
