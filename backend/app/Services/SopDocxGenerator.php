@@ -8,6 +8,7 @@ use PhpOffice\PhpWord\IOFactory;
 use PhpOffice\PhpWord\PhpWord;
 use PhpOffice\PhpWord\Settings;
 use PhpOffice\PhpWord\SimpleType\Jc;
+use PhpOffice\PhpWord\SimpleType\JcTable;
 use PhpOffice\PhpWord\SimpleType\TblWidth;
 use PhpOffice\PhpWord\Style\Table as TableStyle;
 
@@ -128,11 +129,11 @@ class SopDocxGenerator
             $table->addRow($label === 'Disahkan oleh' ? self::HDR_ROW_PENGESAH : 400, ['cantSplit' => true]);
 
             if ($i === 0) {
-                $c = $table->addCell($colL, $this->cell(['vMerge' => 'restart', 'valign' => 'center']));
+                $c = $table->addCell($colL, $this->cell(['vMerge' => 'restart', 'valign' => 'bottom']));
                 $logo = resource_path('sop/logo.png');
                 // Tinggi sel kiri = 5 baris @400 + baris pengesah, dikurangi margin sel atas-bawah (2 x 70)
                 $blockH = 5 * 400 + self::HDR_ROW_PENGESAH - 140 - self::TAIL_P;
-                $this->parafHirarki($c, $sop->instansi, $colL - 200, $sop->paraf_hirarki ?? self::PARAF_JABATAN, is_file($logo) ? $logo : null, $blockH);
+                $this->parafHirarki($c, $sop->instansi, $colL - 140, $sop->paraf_hirarki ?? self::PARAF_JABATAN, is_file($logo) ? $logo : null, $blockH);
             } else {
                 $table->addCell($colL, $this->cell(['vMerge' => 'continue']));
             }
@@ -193,6 +194,7 @@ class SopDocxGenerator
             'layout'     => TableStyle::LAYOUT_FIXED,
             'unit'       => TblWidth::TWIP,
             'width'      => $width,
+            'alignment'  => JcTable::END,
         ]);
 
         $rowH = [300, 300, 450];
