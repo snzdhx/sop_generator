@@ -21,6 +21,7 @@ class SopDocxGenerator
     private const TOTAL_LANDSCAPE = 18715; // sama dengan tabel prosedur dokumen asli // lebar konten tabel prosedur (A4 landscape, twips)
     private const FONT  = ['name' => 'Arial', 'size' => 10];
     private const GRAY  = 'D9D9D9';
+    private const TAIL_P = 20; // tinggi paragraf wajib setelah tabel bersarang (twips)
     private const HDR_ROW_PENGESAH = 1800; // tinggi baris "Disahkan oleh" (menentukan tinggi sel logo di kiri)
     /** Jabatan pada tabel Paraf Hirarki di header (bawaan bila SOP belum mengisi). */
     private const PARAF_JABATAN = ['Sekretaris BKPSDM', 'Ka. Sub Bag. Umum dan Kepegawaian'];
@@ -84,6 +85,14 @@ class SopDocxGenerator
             // PHPWord menulis firstLine="0" bersama hanging="..." (saling bertentangan) sehingga
             // hanging indent daftar bernomor tidak berlaku; buang firstLine agar baris lanjutan rata di bawah teks.
             $out = preg_replace('#\s+w:firstLine="0"(\s+w:hanging="\d+")#', '$1', $xml) ?? $xml;
+            // Word mewajibkan paragraf setelah tabel bersarang; PHPWord menulis <w:p/> berhuruf 10 pt
+            // yang menambah ruang kosong di bawah tabel paraf. Ganti dengan paragraf setinggi TAIL_P.
+            $out = str_replace(
+                '</w:tbl><w:p/></w:tc>',
+                '</w:tbl><w:p><w:pPr><w:spacing w:before="0" w:after="0" w:line="' . self::TAIL_P . '" w:lineRule="exact"/>'
+                    . '<w:rPr><w:sz w:val="2"/><w:szCs w:val="2"/></w:rPr></w:pPr></w:p></w:tc>',
+                $out
+            );
             if ($markers) {
                 $out = preg_replace_callback(
                     '#<w:r>(?:(?!</w:r>).)*?(@@SHP_\d+_\d+@@)(?:(?!</w:r>).)*?</w:r>#s',
@@ -122,7 +131,7 @@ class SopDocxGenerator
                 $c = $table->addCell($colL, $this->cell(['vMerge' => 'restart', 'valign' => 'center']));
                 $logo = resource_path('sop/logo.png');
                 // Tinggi sel kiri = 5 baris @400 + baris pengesah, dikurangi margin sel atas-bawah (2 x 70)
-                $blockH = 5 * 400 + self::HDR_ROW_PENGESAH - 140;
+                $blockH = 5 * 400 + self::HDR_ROW_PENGESAH - 140 - self::TAIL_P;
                 $this->parafHirarki($c, $sop->instansi, $colL - 200, $sop->paraf_hirarki ?? self::PARAF_JABATAN, is_file($logo) ? $logo : null, $blockH);
             } else {
                 $table->addCell($colL, $this->cell(['vMerge' => 'continue']));
