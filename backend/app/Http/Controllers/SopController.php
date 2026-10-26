@@ -4,7 +4,6 @@ namespace App\Http\Controllers;
 
 use App\Models\Sop;
 use App\Services\SopDocxGenerator;
-use App\Services\SopPdfConverter;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 
@@ -81,36 +80,5 @@ class SopController extends Controller
         $name = 'SOP-' . Str::slug($sop->nama_sop) . '.docx';
 
         return response()->download($path, $name)->deleteFileAfterSend(true);
-    }
-
-    /**
-     * Pratinjau: bangun .docx dari data form (belum disimpan), ubah ke PDF, kirim sebagai PDF.
-     * Tidak ada yang ditulis ke database.
-     */
-    public function preview(Request $request, SopDocxGenerator $generator, SopPdfConverter $converter)
-    {
-        // Saat pratinjau, field wajib boleh kosong (form belum selesai diisi)
-        $data = $request->validate(array_merge($this->rules(), [
-            'instansi' => 'nullable|string|max:255',
-            'nama_sop' => 'nullable|string|max:255',
-        ]));
-
-        $data['instansi'] = $data['instansi'] ?? '';
-        $data['nama_sop'] = $data['nama_sop'] ?? '';
-        $data['pelaksana'] = array_map(fn ($v) => (string) $v, $data['pelaksana'] ?? []);
-        foreach (['dasar_hukum', 'kualifikasi', 'keterkaitan', 'peralatan'] as $k) {
-            $data[$k] = array_values(array_filter(array_map(fn ($v) => (string) $v, $data[$k] ?? []), fn ($v) => trim($v) !== ''));
-        }
-
-        $docx = $generator->generate(new Sop($data));
-        try {
-            $pdf = $converter->convert($docx);
-        } catch (\RuntimeException $e) {
-            return response()->json(['message' => $e->getMessage()], 503);
-        } finally {
-            @unlink($docx);
-        }
-
-        return response()->file($pdf, ['Content-Type' => 'application/pdf'])->deleteFileAfterSend(true);
     }
 }
