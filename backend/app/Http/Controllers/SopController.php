@@ -21,6 +21,8 @@ class SopController extends Controller
             'pengesah_jabatan'  => 'nullable|string|max:255',
             'pengesah_nama'     => 'nullable|string|max:255',
             'pengesah_nip'      => 'nullable|string|max:50',
+            'paraf_hirarki'     => 'nullable|array',
+            'paraf_hirarki.*'   => 'nullable|string|max:255',
             'dasar_hukum'       => 'nullable|array',
             'dasar_hukum.*'     => 'nullable|string',
             'kualifikasi'       => 'nullable|array',

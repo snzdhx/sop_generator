@@ -21,7 +21,7 @@ class SopDocxGenerator
     private const TOTAL_LANDSCAPE = 18715; // sama dengan tabel prosedur dokumen asli // lebar konten tabel prosedur (A4 landscape, twips)
     private const FONT  = ['name' => 'Arial', 'size' => 10];
     private const GRAY  = 'D9D9D9';
-    /** Jabatan pada tabel Paraf Hirarki di header (sesuai dokumen asli). */
+    /** Jabatan pada tabel Paraf Hirarki di header (bawaan bila SOP belum mengisi). */
     private const PARAF_JABATAN = ['Sekretaris BKPSDM', 'Ka. Sub Bag. Umum dan Kepegawaian'];
 
     public function generate(Sop $sop): string
@@ -123,7 +123,7 @@ class SopDocxGenerator
                 if (is_file($logo)) {
                     $c->addImage($logo, ['width' => 56, 'height' => 92, 'alignment' => Jc::CENTER]);
                 }
-                $this->parafHirarki($c, $sop->instansi, $colL - 200);
+                $this->parafHirarki($c, $sop->instansi, $colL - 200, $sop->paraf_hirarki ?? self::PARAF_JABATAN);
             } else {
                 $table->addCell($colL, $this->cell(['vMerge' => 'continue']));
             }
@@ -148,8 +148,14 @@ class SopDocxGenerator
      * Blok di sel kiri header: nama instansi (kiri) dan tabel "Paraf Hirarki" (kanan), seperti dokumen Word asli.
      * Satu tabel bersarang; sel nama instansi tanpa garis dan digabung vertikal di sepanjang tabel paraf.
      */
-    private function parafHirarki($cell, string $instansi, int $width): void
+    private function parafHirarki($cell, string $instansi, int $width, array $jabatanList): void
     {
+        $jabatanList = array_values(array_filter(array_map('trim', $jabatanList), fn($v) => $v !== ''));
+        if (!$jabatanList) {
+            // Tanpa jabatan: hanya nama instansi, tanpa tabel paraf
+            $cell->addText($instansi, ['name' => 'Arial', 'size' => 10], ['alignment' => Jc::CENTER, 'spaceAfter' => 0]);
+            return;
+        }
         $wJab = 1800;
         $wParaf = 650;
         $wTgl = 800;
@@ -177,7 +183,7 @@ class SopDocxGenerator
             $this->p($t->addCell($w, $this->cell(['valign' => 'center'])), $label, $f, Jc::CENTER);
         }
 
-        foreach (self::PARAF_JABATAN as $jabatan) {
+        foreach ($jabatanList as $jabatan) {
             $t->addRow(400, ['cantSplit' => true]);
             $text(false);
             $this->p($t->addCell($wJab, $this->cell(['valign' => 'center'])), $jabatan, $f);

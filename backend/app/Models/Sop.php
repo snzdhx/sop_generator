@@ -16,6 +16,7 @@ class Sop extends Model
         'kualifikasi'       => 'array',
         'keterkaitan'       => 'array',
         'peralatan'         => 'array',
+        'paraf_hirarki'     => 'array',
         'pelaksana'         => 'array',
         'steps'             => 'array',
     ];

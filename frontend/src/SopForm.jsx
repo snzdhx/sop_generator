@@ -45,6 +45,8 @@ function SymbolPicker({ value, onChange }) {
   )
 }
 
+const DEFAULT_PARAF = ['Sekretaris BKPSDM', 'Ka. Sub Bag. Umum dan Kepegawaian']
+
 const empty = {
   instansi: 'BADAN KEPEGAWAIAN DAN PENGEMBANGAN SUMBER DAYA MANUSIA KOTA YOGYAKARTA',
   nama_sop: '',
@@ -55,6 +57,7 @@ const empty = {
   pengesah_jabatan: '',
   pengesah_nama: '',
   pengesah_nip: '',
+  paraf_hirarki: DEFAULT_PARAF,
   dasar_hukum: [''],
   kualifikasi: [''],
   keterkaitan: [''],
@@ -75,6 +78,7 @@ const buildPayload = (f) => {
     tanggal_efektif: f.tanggal_efektif || null,
     dasar_hukum: clean(f.dasar_hukum), kualifikasi: clean(f.kualifikasi),
     keterkaitan: clean(f.keterkaitan), peralatan: clean(f.peralatan),
+    paraf_hirarki: clean(f.paraf_hirarki),
   }
 }
 
@@ -258,6 +262,7 @@ export default function SopForm({ id, onClose }) {
         tanggal_pembuatan: d.tanggal_pembuatan?.slice(0, 10) ?? '',
         tanggal_revisi: d.tanggal_revisi?.slice(0, 10) ?? '',
         tanggal_efektif: d.tanggal_efektif?.slice(0, 10) ?? '',
+        paraf_hirarki: d.paraf_hirarki == null ? DEFAULT_PARAF : norm(d.paraf_hirarki),
         dasar_hukum: norm(d.dasar_hukum), kualifikasi: norm(d.kualifikasi),
         keterkaitan: norm(d.keterkaitan), peralatan: norm(d.peralatan),
         pelaksana: d.pelaksana?.length ? d.pelaksana : ['Pelaksana 1'],
@@ -349,6 +354,7 @@ export default function SopForm({ id, onClose }) {
               <div className="field"><label>Nama pejabat</label><input value={f.pengesah_nama ?? ''} onChange={up('pengesah_nama')} /></div>
               <div className="field"><label>NIP</label><input value={f.pengesah_nip ?? ''} onChange={up('pengesah_nip')} /></div>
             </div>
+            <ListEditor label="Paraf Hirarki (jabatan; kosongkan semua untuk menyembunyikan tabel)" items={f.paraf_hirarki} onChange={setList('paraf_hirarki')} />
           </section>
 
           <section>
