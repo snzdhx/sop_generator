@@ -165,13 +165,16 @@ class SopDocxGenerator
         $font = ['name' => 'Arial', 'size' => 9];
         $center = ['alignment' => Jc::CENTER, 'spaceAfter' => 0];
 
-        $logoStyle = ['width' => 52, 'height' => 86, 'alignment' => Jc::CENTER];
+        // Proporsi sama dengan logo di dokumen Word asli (lebih lebar dari file aslinya, 64 x 76 pt)
+        $logoStyle = ['width' => 64, 'height' => 76, 'alignment' => Jc::CENTER];
+        // Jarak logo -> nama instansi
+        $line1Style = $center + ['spaceBefore' => 200];
 
         if (!$jabatanList) {
             if ($logo) {
                 $cell->addImage($logo, $logoStyle);
             }
-            $cell->addText($instansi, $font, $center);
+            $cell->addText($instansi, $font, $line1Style);
             return;
         }
 
@@ -204,7 +207,7 @@ class SopDocxGenerator
         if ($logo) {
             $c1->addImage($logo, $logoStyle);
         }
-        $c1->addText($line1, $font, $center);
+        $c1->addText($line1, $font, $line1Style);
 
         // Baris 2: sel kiri (sambungan nama instansi) digabung vertikal sepanjang tabel paraf
         $t->addRow($rowH[0], ['cantSplit' => true, 'exactHeight' => true]);
