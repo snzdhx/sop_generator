@@ -13,11 +13,11 @@ use PhpOffice\PhpWord\Style\Table as TableStyle;
 
 /**
  * Membuat file .docx SOP dari data model Sop.
- * Halaman 1 (header + informasi): A4 portrait. Halaman prosedur: landscape 20160 x 12240 twips (sama dengan dokumen asli).
+ * Semua halaman (header + informasi, prosedur): landscape 20160 x 12240 twips (sama dengan dokumen asli).
  */
 class SopDocxGenerator
 {
-    private const TOTAL_PORTRAIT  = 10300; // lebar konten halaman informasi (A4 portrait, twips)
+    private const TOTAL_PORTRAIT  = 18715; // lebar konten halaman informasi (sama dengan halaman prosedur, twips)
     private const TOTAL_LANDSCAPE = 18715; // sama dengan tabel prosedur dokumen asli // lebar konten tabel prosedur (A4 landscape, twips)
     private const FONT  = ['name' => 'Arial', 'size' => 10];
     private const GRAY  = 'D9D9D9';
@@ -32,14 +32,15 @@ class SopDocxGenerator
         $word->setDefaultFontSize(10);
         $word->setDefaultParagraphStyle(['spaceAfter' => 0, 'spaceBefore' => 0]);
 
-        // Section 1: portrait
+        // Section 1: header + informasi. Ukuran kertas & margin sama dengan halaman prosedur.
         $portrait = $word->addSection([
-            'pageSizeW' => 11906,
-            'pageSizeH' => 16838,
+            'orientation' => 'landscape',
+            'pageSizeW' => 20160,
+            'pageSizeH' => 12240,
             'marginTop' => 800,
             'marginBottom' => 800,
-            'marginLeft' => 800,
-            'marginRight' => 800,
+            'marginLeft' => 284,
+            'marginRight' => 740,
         ]);
         $this->header($portrait, $sop);
         $portrait->addText('', ['size' => 4]);
@@ -60,9 +61,7 @@ class SopDocxGenerator
         $path = sys_get_temp_dir() . '/' . Str::uuid() . '.docx';
         IOFactory::createWriter($word, 'Word2007')->save($path);
 
-        if ($markers) {
-            $this->injectShapes($path, $markers);
-        }
+        $this->postProcess($path, $markers);
 
         return $path;
     }
@@ -71,7 +70,7 @@ class SopDocxGenerator
      * PHPWord tidak bisa menggambar bentuk/panah. Sel pelaksana diberi penanda teks (@@SHP_baris_kolom@@),
      * lalu setelah file disimpan penanda itu diganti dengan XML bentuk DrawingML hasil FlowchartLayout.
      */
-    private function injectShapes(string $path, array $markers): void
+    private function postProcess(string $path, array $markers): void
     {
         $zip = new \ZipArchive();
         if ($zip->open($path) !== true) {
@@ -79,14 +78,17 @@ class SopDocxGenerator
         }
         $xml = $zip->getFromName('word/document.xml');
         if (is_string($xml)) {
-            $out = preg_replace_callback(
-                '#<w:r>(?:(?!</w:r>).)*?(@@SHP_\d+_\d+@@)(?:(?!</w:r>).)*?</w:r>#s',
-                fn($m) => $markers[$m[1]] ?? '',
-                $xml
-            );
-            if (is_string($out)) {
-                $zip->addFromString('word/document.xml', $out);
+            // PHPWord menulis firstLine="0" bersama hanging="..." (saling bertentangan) sehingga
+            // hanging indent daftar bernomor tidak berlaku; buang firstLine agar baris lanjutan rata di bawah teks.
+            $out = preg_replace('#\s+w:firstLine="0"(\s+w:hanging="\d+")#', '$1', $xml) ?? $xml;
+            if ($markers) {
+                $out = preg_replace_callback(
+                    '#<w:r>(?:(?!</w:r>).)*?(@@SHP_\d+_\d+@@)(?:(?!</w:r>).)*?</w:r>#s',
+                    fn($m) => $markers[$m[1]] ?? '',
+                    $out
+                ) ?? $out;
             }
+            $zip->addFromString('word/document.xml', $out);
         }
         $zip->close();
     }

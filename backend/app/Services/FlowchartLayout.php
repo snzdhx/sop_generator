@@ -791,6 +791,15 @@ class FlowchartLayout
         return true;
     }
 
+    /** Posisi X jalur samping kolom $k: di tengah ruang antara tepi simbol dan tepi kolom (tidak mepet garis tabel). */
+    private function laneX(int $k): int
+    {
+        $right = $this->colLeft[$k] + $this->pw[$k];
+        $symEdge = $this->cx[$k] + intdiv($this->symW, 2);
+
+        return min($right - 50, max($symEdge + 60, intdiv($symEdge + $right, 2)));
+    }
+
     private function collides(int $col, int $i, int $t): bool
     {
         for ($r = $i + 1; $r < $t; $r++) {
@@ -867,7 +876,7 @@ class FlowchartLayout
         }
         $x0 = $this->cx[$s];
         $xc = $this->cx[$c];
-        $lane = $this->colLeft[$s] + $this->pw[$s] - 50;
+        $lane = $this->laneX($s);
         $viaLane = false;
 
         // Cabang keputusan: lurus ke kolom tujuan jika kolomnya kosong (menghindari simbol bila tidak)
@@ -956,7 +965,7 @@ class FlowchartLayout
         $pB = $this->rows[$t]['page'];
         $ymidS = $this->symTop($i) + intdiv($this->symHOf($i), 2);
         $ymidT = $this->symTop($t) + intdiv($this->symHOf($t), 2);
-        $lane = $this->colLeft[$this->n - 1] + $this->pw[$this->n - 1] - 50;
+        $lane = $this->laneX($this->n - 1);
         $edge = $this->cx[$c] + $half;
         $x0 = $this->cx[$s] + $half;
 
@@ -1524,7 +1533,7 @@ class FlowchartLayout
             $xs[] = $this->cx[$s];
         }
         foreach ($laneSrc as $s) {
-            $lane = $this->colLeft[$s] + $this->pw[$s] - 50;
+            $lane = $this->laneX($s);
             if ($side) {
                 // Output kedua dst. (cabang keputusan): boleh keluar dari sisi simbol
                 $sx = $this->cx[$s] + intdiv($this->symW, 2);
