@@ -23,7 +23,8 @@ class SopDocxGenerator
     private const FONT  = ['name' => 'Arial', 'size' => 10];
     private const GRAY  = 'D9D9D9';
     private const TAIL_P = 14; // tinggi paragraf wajib setelah tabel bersarang (twips)
-    private const HDR_ROW_PENGESAH = 1950; // tinggi baris "Disahkan oleh" (menentukan tinggi sel logo di kiri)
+    private const HDR_ROW = 280; // tinggi baris biasa kolom kanan header (rapat seperti Word asli)
+    private const HDR_ROW_PENGESAH = 2400; // tinggi baris "Disahkan oleh" (menentukan tinggi sel logo di kiri)
     /** Jabatan pada tabel Paraf Hirarki di header (bawaan bila SOP belum mengisi). */
     private const PARAF_JABATAN = ['Sekretaris BKPSDM', 'Ka. Sub Bag. Umum dan Kepegawaian'];
 
@@ -111,7 +112,7 @@ class SopDocxGenerator
     {
         $table = $this->table($section, self::TOTAL_PORTRAIT);
         $colL = intdiv(self::TOTAL_PORTRAIT, 2); // sejajar dengan garis kolom tabel Dasar Hukum di bawahnya
-        $colLabel = 2200;
+        $colLabel = 2400;
         $colVal = self::TOTAL_PORTRAIT - $colL - $colLabel;
 
         $fmt = fn($d) => $d ? $d->locale('id')->translatedFormat('d F Y') : '';
@@ -126,31 +127,34 @@ class SopDocxGenerator
         ];
 
         foreach ($rows as $i => [$label, $value]) {
-            $table->addRow($label === 'Disahkan oleh' ? self::HDR_ROW_PENGESAH : 400, ['cantSplit' => true]);
+            $table->addRow($label === 'Disahkan oleh' ? self::HDR_ROW_PENGESAH : self::HDR_ROW, ['cantSplit' => true]);
 
             if ($i === 0) {
                 $c = $table->addCell($colL, $this->cell(['vMerge' => 'restart', 'valign' => 'bottom', 'paddingRight' => 0, 'paddingBottom' => 0]));
                 $logo = resource_path('sop/logo.png');
-                // Tinggi sel kiri = 5 baris @400 + baris pengesah, dikurangi margin sel atas (70); margin bawah & kanan = 0
+                // Tinggi sel kiri = 5 baris biasa + baris pengesah, dikurangi margin sel atas (70); margin bawah & kanan = 0
                 // supaya garis tabel Paraf Hirarki menumpuk tepat di garis sel (seperti Word asli)
-                $blockH = 5 * 400 + self::HDR_ROW_PENGESAH - 70 - self::TAIL_P;
+                $blockH = 5 * self::HDR_ROW + self::HDR_ROW_PENGESAH - 70 - self::TAIL_P;
                 $this->parafHirarki($c, $sop->instansi, $colL - 70, $sop->paraf_hirarki ?? self::PARAF_JABATAN, is_file($logo) ? $logo : null, $blockH);
             } else {
                 $table->addCell($colL, $this->cell(['vMerge' => 'continue']));
             }
 
-            $this->p($table->addCell($colLabel, $this->cell()), $label);
+            // Tanpa margin atas/bawah sel supaya baris rapat seperti Word asli
+            $tight = $this->cell(['paddingTop' => 0, 'paddingBottom' => 0]);
+            $isNama = $label === 'Nama SOP:';
+            $this->p($table->addCell($colLabel, $tight), $label, $isNama ? ['bold' => true] : []);
 
-            $vc = $table->addCell($colVal, $this->cell());
+            $vc = $table->addCell($colVal, $tight);
             if ($value === '__PENGESAH__') {
-                $this->p($vc, $sop->pengesah_jabatan ?? '', [], Jc::CENTER);
-                $vc->addTextBreak(3);
-                $this->p($vc, $sop->pengesah_nama ?? '', ['underline' => 'single'], Jc::CENTER);
+                $small = ['size' => 8];
+                $this->p($vc, $sop->pengesah_jabatan ?? '', $small, Jc::CENTER);
+                $this->p($vc, $sop->pengesah_nama ?? '', $small + ['underline' => 'single'], Jc::CENTER, ['spaceBefore' => 1500]);
                 if ($sop->pengesah_nip) {
-                    $this->p($vc, 'NIP. ' . $sop->pengesah_nip, [], Jc::CENTER);
+                    $this->p($vc, 'NIP. ' . $sop->pengesah_nip, $small, Jc::CENTER);
                 }
             } else {
-                $this->p($vc, $value, $label === 'Nama SOP:' ? ['bold' => true] : []);
+                $this->p($vc, $value, $isNama ? ['bold' => true] : []);
             }
         }
     }
