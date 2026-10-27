@@ -46,3 +46,7 @@ button:disabled { opacity: .5; cursor: wait; }
 .picker-item:hover { background: #eff6ff; }
 .picker-item.selected { background: #dbeafe; }
 .picker-full { font-size: 12px; color: #374151; margin-top: 4px; white-space: pre-wrap; }
+
+.filters { display: flex; gap: 8px; margin: 12px 0; }
+.filters input { flex: 1; }
+.filters select { width: 200px; }
