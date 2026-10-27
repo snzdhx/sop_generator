@@ -26,7 +26,7 @@ class SopDocxGenerator
     private const GRAY  = 'D9D9D9';
     private const TAIL_P = 14; // tinggi paragraf wajib setelah tabel bersarang (twips)
     private const HDR_ROW = 330; // tinggi baris biasa kolom kanan header (rapat seperti Word asli)
-    private const HDR_ROW_PENGESAH = 2400; // tinggi baris "Disahkan oleh" (menentukan tinggi sel logo di kiri)
+    private const HDR_ROW_PENGESAH = 2800; // tinggi baris "Disahkan oleh" (menentukan tinggi sel logo di kiri)
     /** Jabatan pada tabel Paraf Hirarki di header (bawaan bila SOP belum mengisi). */
     private const PARAF_JABATAN = ['Sekretaris BKPSDM', 'Ka. Sub Bag. Umum dan Kepegawaian'];
 
@@ -153,7 +153,7 @@ class SopDocxGenerator
             if ($value === '__PENGESAH__') {
                 $small = ['size' => 11];
                 $this->p($vc, $sop->pengesah_jabatan ?? '', $small, Jc::CENTER);
-                $this->p($vc, $sop->pengesah_nama ?? '', $small + ['underline' => 'single'], Jc::CENTER, ['spaceBefore' => 1500]);
+                $this->p($vc, $sop->pengesah_nama ?? '', $small + ['underline' => 'single'], Jc::CENTER, ['spaceBefore' => 1900]);
                 if ($sop->pengesah_nip) {
                     $this->p($vc, 'NIP. ' . $sop->pengesah_nip, $small, Jc::CENTER);
                 }
@@ -171,7 +171,7 @@ class SopDocxGenerator
     private function parafHirarki($cell, string $instansi, int $width, array $jabatanList, ?string $logo = null, int $blockH = 3500): void
     {
         $jabatanList = array_values(array_filter(array_map('trim', $jabatanList), fn($v) => $v !== ''));
-        $font = ['name' => 'Calibri', 'size' => 9];
+        $font = ['name' => 'Calibri', 'size' => 10];
         $center = ['alignment' => Jc::CENTER, 'spaceAfter' => 0];
 
         // Proporsi asli logo (158 x 221 px = 0,715) agar tidak melebar/gepeng: 60 x 84 pt
@@ -199,7 +199,7 @@ class SopDocxGenerator
         $wTgl = 825;
         $wParafTotal = $wJab + $wParaf + $wTgl;
         $wText = $width - $wParafTotal;
-        $f = ['name' => 'Calibri', 'size' => 8];
+        $f = ['name' => 'Calibri', 'size' => 10];
 
         $t = $cell->addTable([
             'cellMargin' => 40,
@@ -209,7 +209,7 @@ class SopDocxGenerator
             'alignment'  => JcTable::END,
         ]);
 
-        $rowH = [300, 300, 450];
+        $rowH = [320, 320, 600];
         $top = max(1500, $blockH - $rowH[0] - $rowH[1] - $rowH[2] * count($jabatanList));
         $t->addRow($top, ['cantSplit' => true, 'exactHeight' => true]);
         $c1 = $t->addCell($width, $this->hidden(['gridSpan' => 4, 'valign' => 'bottom']));
@@ -390,7 +390,7 @@ class SopDocxGenerator
     }
 
     /** Satu paragraf teks. */
-    private function p($cell, string $text, array $font = [], string $align = Jc::LEFT, array $para = []): void
+    private function p($cell, string $text, array $font = [], string $align = Jc::BOTH, array $para = []): void
     {
         $cell->addText($text, array_merge(self::FONT, ['size' => $this->fontPt], $font), array_merge(['alignment' => $align, 'spaceAfter' => 0], $para));
     }
@@ -398,7 +398,7 @@ class SopDocxGenerator
     /**
      * Isi sel: array => daftar bernomor "1. ...", string => paragraf (baris baru dipisah).
      */
-    private function fill($cell, $value, string $align = Jc::LEFT): void
+    private function fill($cell, $value, string $align = Jc::BOTH): void
     {
         if (is_array($value)) {
             $items = array_values(array_filter(array_map('trim', $value), fn($v) => $v !== ''));
