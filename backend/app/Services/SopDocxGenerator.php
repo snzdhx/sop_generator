@@ -66,7 +66,6 @@ class SopDocxGenerator
             'marginLeft' => 284,
             'marginRight' => 740,
         ]);
-        $this->fontPt = 10; // tabel prosedur tetap 10 pt agar kolom tidak pecah
         $markers = $this->flowchart($landscape, $sop);
 
         $path = sys_get_temp_dir() . '/' . Str::uuid() . '.docx';
@@ -295,6 +294,7 @@ class SopDocxGenerator
         // "page break before" di LUAR tabel, karena LibreOffice mengabaikan page break di dalam sel tabel
         // sehingga pembagian halaman hasil FlowchartLayout tidak diikuti.
         $header = function ($table) use ($L, $n, $pw, $wNo, $wKeg, $wSyr, $wWkt, $wOut, $wKet, $wMutu, $pelaksana, $head, $bold) {
+        $this->fontPt = 10; // judul kolom tetap 10 pt agar tidak terpecah
         // Baris header 1
         $table->addRow($L->headH[0], ['tblHeader' => true, 'cantSplit' => true, 'exactHeight' => true]);
         $this->p($table->addCell($wNo, $this->cell(['bgColor' => self::GRAY, 'valign' => 'center', 'vMerge' => 'restart'])), 'No', $bold, Jc::CENTER);
@@ -333,6 +333,7 @@ class SopDocxGenerator
                 $table = $this->table($section, self::TOTAL_LANDSCAPE);
                 $header($table);
             }
+            $this->fontPt = 12; // isi kalimat tabel alur 12 pt
             // Tinggi baris dikunci EXACT sesuai hitungan FlowchartLayout, supaya posisi simbol/panah
             // (offset absolut) tidak bergeser kalau Word/LibreOffice membungkus teks sedikit berbeda.
             $table->addRow($r['h'], ['cantSplit' => true, 'exactHeight' => true]);
@@ -340,7 +341,7 @@ class SopDocxGenerator
             $this->p(
                 $table->addCell($wNo, $this->cell(['valign' => 'center'])),
                 ($i + 1) . '.',
-                [],
+                ['size' => 10], // kolom No sempit
                 Jc::CENTER
             );
             $this->fill($table->addCell($wKeg, $this->cell(['valign' => 'center'])), $step['kegiatan'] ?? '', Jc::BOTH);
@@ -358,7 +359,7 @@ class SopDocxGenerator
             }
 
             $this->fill($table->addCell($wSyr, $this->cell(['valign' => 'center'])), $step['persyaratan'] ?? '');
-            $this->p($table->addCell($wWkt, $this->cell(['valign' => 'center'])), $step['waktu'] ?? '', [], Jc::CENTER);
+            $this->p($table->addCell($wWkt, $this->cell(['valign' => 'center'])), $step['waktu'] ?? '', ['size' => 10], Jc::CENTER);
             $this->fill($table->addCell($wOut, $this->cell(['valign' => 'center'])), $step['output'] ?? '');
             $this->fill($table->addCell($wKet, $this->cell(['valign' => 'center'])), $step['keterangan'] ?? '');
         }
