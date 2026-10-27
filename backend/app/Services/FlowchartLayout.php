@@ -18,7 +18,7 @@ class FlowchartLayout
 {
     private const EMU = 635;
     private const CELL_M = 70;       // margin sel
-    private const LINE_H = 245;      // tinggi satu baris Calibri 10 pt
+    private const LINE_H = 295;      // tinggi satu baris Calibri 12 pt
     private const SYM_W_MAX = 1000;
     private const SYM_H = 520;
     private const DIA_H = 680;
@@ -40,7 +40,7 @@ class FlowchartLayout
     private const HOP_MARGIN = 60;  // jarak minimum lompatan dari ujung/tekukan garis
     private const CONN_W = 246;
     private const CONN_H = 268;
-    private const FONT_PT = 10;
+    private const FONT_PT = 12; // halaman informasi
     private const SAFE = 1.08;      // faktor aman lebar teks (baris dikunci exact, jadi teks tidak boleh terpotong)
 
     /** Lebar huruf Arial (per 1000 em) untuk ASCII 32..126. */

@@ -21,9 +21,11 @@ class SopDocxGenerator
     private const TOTAL_PORTRAIT  = 18715; // lebar konten halaman informasi (sama dengan halaman prosedur, twips)
     private const TOTAL_LANDSCAPE = 18715; // sama dengan tabel prosedur dokumen asli // lebar konten tabel prosedur (A4 landscape, twips)
     private const FONT  = ['name' => 'Calibri', 'size' => 10];
+    private const BODY_PT = 12; // ukuran font halaman informasi (header + Dasar Hukum dst.); tabel prosedur tetap 10
+    private int $fontPt = self::BODY_PT;
     private const GRAY  = 'D9D9D9';
     private const TAIL_P = 14; // tinggi paragraf wajib setelah tabel bersarang (twips)
-    private const HDR_ROW = 280; // tinggi baris biasa kolom kanan header (rapat seperti Word asli)
+    private const HDR_ROW = 330; // tinggi baris biasa kolom kanan header (rapat seperti Word asli)
     private const HDR_ROW_PENGESAH = 2400; // tinggi baris "Disahkan oleh" (menentukan tinggi sel logo di kiri)
     /** Jabatan pada tabel Paraf Hirarki di header (bawaan bila SOP belum mengisi). */
     private const PARAF_JABATAN = ['Sekretaris BKPSDM', 'Ka. Sub Bag. Umum dan Kepegawaian'];
@@ -32,6 +34,7 @@ class SopDocxGenerator
     {
         // Wajib: supaya karakter seperti & < > di data tidak merusak XML docx
         Settings::setOutputEscapingEnabled(true);
+        $this->fontPt = self::BODY_PT;
 
         $word = new PhpWord();
         $word->setDefaultFontName('Calibri');
@@ -62,6 +65,7 @@ class SopDocxGenerator
             'marginLeft' => 284,
             'marginRight' => 740,
         ]);
+        $this->fontPt = 10; // tabel prosedur tetap 10 pt agar kolom tidak pecah
         $markers = $this->flowchart($landscape, $sop);
 
         $path = sys_get_temp_dir() . '/' . Str::uuid() . '.docx';
@@ -388,7 +392,7 @@ class SopDocxGenerator
     /** Satu paragraf teks. */
     private function p($cell, string $text, array $font = [], string $align = Jc::LEFT, array $para = []): void
     {
-        $cell->addText($text, array_merge(self::FONT, $font), array_merge(['alignment' => $align, 'spaceAfter' => 0], $para));
+        $cell->addText($text, array_merge(self::FONT, ['size' => $this->fontPt], $font), array_merge(['alignment' => $align, 'spaceAfter' => 0], $para));
     }
 
     /**
@@ -401,7 +405,7 @@ class SopDocxGenerator
             foreach ($items as $i => $item) {
                 $cell->addText(
                     ($i + 1) . '.' . "\t" . $item,
-                    self::FONT,
+                    array_merge(self::FONT, ['size' => $this->fontPt]),
                     ['alignment' => Jc::BOTH, 'indentation' => ['left' => 360, 'hanging' => 360], 'spaceAfter' => 40]
                 );
             }
