@@ -20,7 +20,7 @@ class SopDocxGenerator
 {
     private const TOTAL_PORTRAIT  = 18715; // lebar konten halaman informasi (sama dengan halaman prosedur, twips)
     private const TOTAL_LANDSCAPE = 18715; // sama dengan tabel prosedur dokumen asli // lebar konten tabel prosedur (A4 landscape, twips)
-    private const FONT  = ['name' => 'Arial', 'size' => 10];
+    private const FONT  = ['name' => 'Calibri', 'size' => 10];
     private const GRAY  = 'D9D9D9';
     private const TAIL_P = 14; // tinggi paragraf wajib setelah tabel bersarang (twips)
     private const HDR_ROW = 280; // tinggi baris biasa kolom kanan header (rapat seperti Word asli)
@@ -34,7 +34,7 @@ class SopDocxGenerator
         Settings::setOutputEscapingEnabled(true);
 
         $word = new PhpWord();
-        $word->setDefaultFontName('Arial');
+        $word->setDefaultFontName('Calibri');
         $word->setDefaultFontSize(10);
         $word->setDefaultParagraphStyle(['spaceAfter' => 0, 'spaceBefore' => 0]);
 
@@ -167,7 +167,7 @@ class SopDocxGenerator
     private function parafHirarki($cell, string $instansi, int $width, array $jabatanList, ?string $logo = null, int $blockH = 3500): void
     {
         $jabatanList = array_values(array_filter(array_map('trim', $jabatanList), fn($v) => $v !== ''));
-        $font = ['name' => 'Arial', 'size' => 9];
+        $font = ['name' => 'Calibri', 'size' => 9];
         $center = ['alignment' => Jc::CENTER, 'spaceAfter' => 0];
 
         // Proporsi asli logo (158 x 221 px = 0,715) agar tidak melebar/gepeng: 60 x 84 pt
@@ -195,7 +195,7 @@ class SopDocxGenerator
         $wTgl = 825;
         $wParafTotal = $wJab + $wParaf + $wTgl;
         $wText = $width - $wParafTotal;
-        $f = ['name' => 'Arial', 'size' => 8];
+        $f = ['name' => 'Calibri', 'size' => 8];
 
         $t = $cell->addTable([
             'cellMargin' => 40,
@@ -321,7 +321,7 @@ class SopDocxGenerator
         foreach ($steps as $i => $step) {
             $r = $L->rows[$i];
             if ($r['brk']) {
-                $section->addText('', ['name' => 'Arial', 'size' => 1], ['pageBreakBefore' => true, 'spaceBefore' => 0, 'spaceAfter' => 0]);
+                $section->addText('', ['name' => 'Calibri', 'size' => 1], ['pageBreakBefore' => true, 'spaceBefore' => 0, 'spaceAfter' => 0]);
                 $table = $this->table($section, self::TOTAL_LANDSCAPE);
                 $header($table);
             }
@@ -342,7 +342,7 @@ class SopDocxGenerator
                 $c = $table->addCell($pw[$k], $this->cell(['valign' => 'top']));
                 if (!empty($L->shapes[$i][$k])) {
                     $key = '@@SHP_' . $i . '_' . $k . '@@';
-                    $c->addText($key, ['name' => 'Arial', 'size' => 2], ['spaceAfter' => 0, 'spaceBefore' => 0]);
+                    $c->addText($key, ['name' => 'Calibri', 'size' => 2], ['spaceAfter' => 0, 'spaceBefore' => 0]);
                     $markers[$key] = implode('', $L->shapes[$i][$k]);
                 } else {
                     $this->p($c, '');

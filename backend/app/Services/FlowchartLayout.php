@@ -4,7 +4,7 @@ namespace App\Services;
 
 /**
  * Menghitung tata letak alur (flowchart) pada kolom "Pelaksana" tabel SOP:
- *  - perkiraan tinggi tiap baris dari panjang teks (lebar huruf Arial 10 pt),
+ *  - perkiraan tinggi tiap baris dari panjang teks (lebar huruf Calibri 10 pt (didekati dari Arial x 0,9)),
  *  - pembagian halaman (baris tidak dipotong, header tabel berulang),
  *  - letak simbol (kotak / oval / belah ketupat) dan panah antar langkah,
  *  - konektor halaman (A, B, ...) jika panah melewati batas halaman.
@@ -18,7 +18,7 @@ class FlowchartLayout
 {
     private const EMU = 635;
     private const CELL_M = 70;       // margin sel
-    private const LINE_H = 230;      // tinggi satu baris Arial 10 pt
+    private const LINE_H = 245;      // tinggi satu baris Calibri 10 pt
     private const SYM_W_MAX = 1000;
     private const SYM_H = 520;
     private const DIA_H = 680;
@@ -250,7 +250,7 @@ class FlowchartLayout
         $chars = preg_split('//u', $s, -1, PREG_SPLIT_NO_EMPTY) ?: [];
         foreach ($chars as $ch) {
             $o = mb_ord($ch, 'UTF-8');
-            $w += ($o >= 32 && $o <= 126) ? self::ARIAL[$o - 32] : 556;
+            $w += ($o >= 32 && $o <= 126) ? self::ARIAL[$o - 32] * 0.9 : 500; // Calibri ≈ 90% lebar Arial
         }
 
         return $w * $pt / 1000.0 * ($bold ? 1.08 : 1.0) * self::SAFE;
@@ -1680,7 +1680,7 @@ class FlowchartLayout
                 $size = $kind === 'offpage' ? 14 : 16;
                 $body = sprintf(
                     '<wps:txbx><w:txbxContent><w:p><w:pPr><w:spacing w:before="0" w:after="0"/><w:jc w:val="%s"/></w:pPr>'
-                        . '<w:r><w:rPr><w:rFonts w:ascii="Arial" w:hAnsi="Arial"/><w:sz w:val="%d"/></w:rPr><w:t>%s</w:t></w:r></w:p>'
+                        . '<w:r><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/><w:sz w:val="%d"/></w:rPr><w:t>%s</w:t></w:r></w:p>'
                         . '</w:txbxContent></wps:txbx><wps:bodyPr lIns="0" tIns="0" rIns="0" bIns="0" anchor="ctr"/>',
                     $kind === 'offpage' ? 'center' : 'left',
                     $size,
