@@ -25,6 +25,7 @@ class SopDocxGenerator
     private int $fontPt = self::BODY_PT;
     private const GRAY  = 'D9D9D9';
     private const TAIL_P = 14; // tinggi paragraf wajib setelah tabel bersarang (twips)
+    private const PARAF_GESER = 700; // jarak tabel Paraf Hirarki dari garis kanan sel (twips): geser ke kiri
     private const HDR_ROW = 330; // tinggi baris biasa kolom kanan header (rapat seperti Word asli)
     private const HDR_ROW_PENGESAH = 2800; // tinggi baris "Disahkan oleh" (menentukan tinggi sel logo di kiri)
     /** Jabatan pada tabel Paraf Hirarki di header (bawaan bila SOP belum mengisi). */
@@ -134,12 +135,12 @@ class SopDocxGenerator
             $table->addRow($label === 'Disahkan oleh' ? self::HDR_ROW_PENGESAH : self::HDR_ROW, ['cantSplit' => true]);
 
             if ($i === 0) {
-                $c = $table->addCell($colL, $this->cell(['vMerge' => 'restart', 'valign' => 'bottom', 'paddingRight' => 0, 'paddingBottom' => 0]));
+                $c = $table->addCell($colL, $this->cell(['vMerge' => 'restart', 'valign' => 'bottom', 'paddingRight' => self::PARAF_GESER, 'paddingBottom' => 0]));
                 $logo = resource_path('sop/logo.png');
                 // Tinggi sel kiri = 5 baris biasa + baris pengesah, dikurangi margin sel atas (70); margin bawah & kanan = 0
                 // supaya garis tabel Paraf Hirarki menumpuk tepat di garis sel (seperti Word asli)
                 $blockH = 5 * self::HDR_ROW + self::HDR_ROW_PENGESAH - 70 - self::TAIL_P;
-                $this->parafHirarki($c, $sop->instansi, $colL - 70, $sop->paraf_hirarki ?? self::PARAF_JABATAN, is_file($logo) ? $logo : null, $blockH);
+                $this->parafHirarki($c, $sop->instansi, $colL - 70 - self::PARAF_GESER, $sop->paraf_hirarki ?? self::PARAF_JABATAN, is_file($logo) ? $logo : null, $blockH);
             } else {
                 $table->addCell($colL, $this->cell(['vMerge' => 'continue']));
             }
