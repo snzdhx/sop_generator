@@ -151,9 +151,9 @@ class SopDocxGenerator
 
             $vc = $table->addCell($colVal, $tight);
             if ($value === '__PENGESAH__') {
-                $small = ['size' => 8];
+                $small = ['size' => 11];
                 $this->p($vc, $sop->pengesah_jabatan ?? '', $small, Jc::CENTER);
-                $this->p($vc, $sop->pengesah_nama ?? '', $small + ['underline' => 'single'], Jc::CENTER, ['spaceBefore' => 1750]);
+                $this->p($vc, $sop->pengesah_nama ?? '', $small + ['underline' => 'single'], Jc::CENTER, ['spaceBefore' => 1500]);
                 if ($sop->pengesah_nip) {
                     $this->p($vc, 'NIP. ' . $sop->pengesah_nip, $small, Jc::CENTER);
                 }
