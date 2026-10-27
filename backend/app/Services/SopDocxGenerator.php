@@ -25,7 +25,7 @@ class SopDocxGenerator
     private int $fontPt = self::BODY_PT;
     private const GRAY  = 'D9D9D9';
     private const TAIL_P = 14; // tinggi paragraf wajib setelah tabel bersarang (twips)
-    private const PARAF_GESER = 700; // jarak tabel Paraf Hirarki dari garis kanan sel (twips): geser ke kiri
+    private const PARAF_GESER = 350; // jarak tabel Paraf Hirarki dari garis kanan sel (twips): geser ke kiri
     private const HDR_ROW = 330; // tinggi baris biasa kolom kanan header (rapat seperti Word asli)
     private const HDR_ROW_PENGESAH = 2800; // tinggi baris "Disahkan oleh" (menentukan tinggi sel logo di kiri)
     /** Jabatan pada tabel Paraf Hirarki di header (bawaan bila SOP belum mengisi). */
