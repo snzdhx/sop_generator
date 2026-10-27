@@ -979,10 +979,12 @@ class FlowchartLayout
                 $from = $p === $pA ? $ymidS : $this->pageBottom($p);
                 $to = $yTop + self::CONN_H;
                 if ($from - $to >= 2) {
-                    $this->poly($p, [[$lane, $from], [$lane, $to]], false);
+                    // Kepala panah masuk ke konektor di atas halaman (aliran ke atas)
+                    $this->poly($p, [[$lane, $from], [$lane, $to]], true);
                 }
-                $this->add($p, $lane - $half2, $yTop, self::CONN_W, self::CONN_H, 'offpage');
-                $this->add($p - 1, $lane - $half2, $this->pageBottom($p - 1), self::CONN_W, self::CONN_H, 'offpage');
+                // Konektor menghadap ke atas (searah aliran kembali ke langkah sebelumnya)
+                $this->add($p, $lane - $half2, $yTop, self::CONN_W, self::CONN_H, 'offpage_up');
+                $this->add($p - 1, $lane - $half2, $this->pageBottom($p - 1), self::CONN_W, self::CONN_H, 'offpage_up');
             }
             $this->poly($pB, [[$lane, $this->pageBottom($pB)], [$lane, $ymidT], [$edge, $ymidT]]);
         }
@@ -1655,7 +1657,7 @@ class FlowchartLayout
             $prst = match ($kind) {
                 'terminator' => 'roundRect',
                 'decision' => 'diamond',
-                'offpage' => 'flowChartOffpageConnector',
+                'offpage', 'offpage_up' => 'flowChartOffpageConnector',
                 default => 'rect', // process, label
             };
             $av = $prst === 'roundRect' ? '<a:avLst><a:gd name="adj" fmla="val 50000"/></a:avLst>' : '<a:avLst/>';
@@ -1667,7 +1669,7 @@ class FlowchartLayout
                 $ln = '<a:ln w="19050"><a:solidFill><a:srgbClr val="000000"/></a:solidFill></a:ln>';
             }
             $sp = sprintf(
-                '<wps:cNvSpPr/><wps:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="%d" cy="%d"/></a:xfrm>'
+                '<wps:cNvSpPr/><wps:spPr><a:xfrm' . ($kind === 'offpage_up' ? ' flipV="1"' : '') . '><a:off x="0" y="0"/><a:ext cx="%d" cy="%d"/></a:xfrm>'
                     . '<a:prstGeom prst="%s">%s</a:prstGeom>%s%s</wps:spPr>',
                 $cxe,
                 $cye,
@@ -1677,12 +1679,12 @@ class FlowchartLayout
                 $ln
             );
             if ($text !== '') {
-                $size = $kind === 'offpage' ? 14 : 16;
+                $size = in_array($kind, ['offpage', 'offpage_up'], true) ? 14 : 16;
                 $body = sprintf(
                     '<wps:txbx><w:txbxContent><w:p><w:pPr><w:spacing w:before="0" w:after="0"/><w:jc w:val="%s"/></w:pPr>'
                         . '<w:r><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/><w:sz w:val="%d"/></w:rPr><w:t>%s</w:t></w:r></w:p>'
                         . '</w:txbxContent></wps:txbx><wps:bodyPr lIns="0" tIns="0" rIns="0" bIns="0" anchor="ctr"/>',
-                    $kind === 'offpage' ? 'center' : 'left',
+                    in_array($kind, ['offpage', 'offpage_up'], true) ? 'center' : 'left',
                     $size,
                     htmlspecialchars($text, ENT_XML1 | ENT_QUOTES, 'UTF-8')
                 );
