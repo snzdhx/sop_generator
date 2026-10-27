@@ -173,7 +173,7 @@ class FlowchartLayout
     private array $paths = [];
     private string $grp = '';
 
-    public function __construct(array $pelaksana, array $steps, int $totalW = 18715, array $widths = [438, 2997, 2250, 1080, 2250, 2160], array $pelWidths = [])
+    public function __construct(array $pelaksana, array $steps, int $totalW = 18715, array $widths = [560, 2897, 2228, 1300, 2150, 2040], array $pelWidths = [])
     {
         $this->pel = array_values($pelaksana) ?: ['Pelaksana'];
         $this->n = count($this->pel);
@@ -184,7 +184,7 @@ class FlowchartLayout
         if (count($pelWidths) === $this->n && array_sum($pelWidths) === $pelTotal) {
             $this->pw = array_values($pelWidths);
         } elseif ($this->n === 5 && $pelTotal === 7540) {
-            $this->pw = [1380, 1295, 1331, 1331, 2203];
+            $this->pw = [1350, 1500, 1350, 1600, 1740];
         } else {
             $each = intdiv($pelTotal, $this->n);
             $this->pw = array_fill(0, $this->n, $each);
@@ -322,7 +322,7 @@ class FlowchartLayout
         // Header "Persyaratan dan kelengkapan" ikut dihitung (sebelumnya terpotong karena baris terlalu pendek)
         $namesH = max($namesH, $this->cellTextH('Persyaratan dan kelengkapan', $this->wSyr, true));
         $namesH += 2 * self::CELL_M + 20;
-        $this->headH = [430, max(430, $namesH), 360]; // baris nomor: teks 9 pt + margin sel butuh >= 350
+        $this->headH = [430, max(430, $namesH), 440]; // baris nomor: teks 9 pt + margin sel butuh >= 350
         $this->hHead = array_sum($this->headH) + 30;
 
         // Baris yang terlibat pola bus (gabung -> batang -> pecah) butuh ruang vertikal lega
