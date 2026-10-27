@@ -50,8 +50,4 @@ button:disabled { opacity: .5; cursor: wait; }
 .filters { display: flex; gap: 8px; margin: 12px 0; }
 .filters input { flex: 1; }
 .filters select { width: 200px; }
-.list th:nth-child(1) { width: 40%; }
-.list th:nth-child(2) { width: 15%; }
-.list th:nth-child(3) { width: 20%; }
-.list th:nth-child(4) { width: 25%; }
 .list td { overflow-wrap: anywhere; }

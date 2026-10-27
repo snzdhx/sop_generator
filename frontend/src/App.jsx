@@ -65,6 +65,12 @@ export default function App() {
       </div>
 
       <table className="list">
+        <colgroup>
+          <col style={{ width: '40%' }} />
+          <col style={{ width: '15%' }} />
+          <col style={{ width: '20%' }} />
+          <col style={{ width: '25%' }} />
+        </colgroup>
         <thead>
           <tr><th>Nama SOP</th><th>Nomor</th><th>Terakhir diubah</th><th></th></tr>
         </thead>
