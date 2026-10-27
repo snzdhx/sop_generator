@@ -1,24 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { api } from './api'
 import SopForm from './SopForm.jsx'
-
-// Ikon garis sederhana (24x24), warna mengikuti teks
-const PATHS = {
-  search: <><circle cx="11" cy="11" r="6.5" /><path d="m16 16 4.5 4.5" /></>,
-  plus: <path d="M12 5v14M5 12h14" />,
-  download: <path d="M12 4v11m0 0-4.5-4.5M12 15l4.5-4.5M5 19.5h14" />,
-  edit: <path d="M4 20h4l10.5-10.5a2.1 2.1 0 0 0-3-3L5 17v3Zm9.5-13.5 3 3" />,
-  trash: <path d="M5 7h14M10 7V5h4v2m-8 0 .8 12h8.4L17 7M10 11v5m4-5v5" />,
-}
-
-function Icon({ name, size = 18 }) {
-  return (
-    <svg viewBox="0 0 24 24" width={size} height={size} fill="none" stroke="currentColor"
-      strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      {PATHS[name]}
-    </svg>
-  )
-}
+import Icon from './Icon.jsx'
 
 const fmtDate = (v) => new Date(v).toLocaleString('id-ID', {
   day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit',
