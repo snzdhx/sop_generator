@@ -312,13 +312,13 @@ export default function SopForm({ id, onClose }) {
       steps: remap(f.steps.filter((_, k) => k !== i), (n) => (n === i + 1 ? null : n > i + 1 ? n - 1 : n)),
     })
 
-  const save = async (download) => {
+  const save = async () => {
     setSaving(true); setError('')
     try {
       const payload = buildPayload(f)
-      const saved = id ? await api.update(id, payload) : await api.create(payload)
-      if (download) window.location.href = api.downloadUrl(saved.id)
-      else onClose()
+      if (id) await api.update(id, payload)
+      else await api.create(payload)
+      onClose()
     } catch (e) {
       setError(e.message)
     } finally {
@@ -426,8 +426,7 @@ export default function SopForm({ id, onClose }) {
       </div>
 
       <footer className="bar sticky">
-        <button disabled={saving} onClick={() => save(false)}>Simpan</button>
-        <button className="primary" disabled={saving} onClick={() => save(true)}>Simpan &amp; Unduh .docx</button>
+        <button className="primary" disabled={saving} onClick={save}>Simpan</button>
       </footer>
     </div>
   )
