@@ -177,7 +177,7 @@ class SopDocxGenerator
         // Proporsi asli logo (158 x 221 px = 0,715) agar tidak melebar/gepeng: 60 x 84 pt
         $logoStyle = ['width' => 60, 'height' => 84, 'alignment' => Jc::CENTER];
         // Jarak logo -> nama instansi
-        $line1Style = $center + ['spaceBefore' => 260];
+        $line1Style = $center + ['spaceBefore' => 200];
 
         if (!$jabatanList) {
             if ($logo) {
@@ -194,9 +194,9 @@ class SopDocxGenerator
             [$line1, $line2] = [$m[1], $m[2]];
         }
 
-        $wJab = 1715;
-        $wParaf = 815;
-        $wTgl = 845;
+        $wJab = 2150;
+        $wParaf = 925;
+        $wTgl = 925;
         $wParafTotal = $wJab + $wParaf + $wTgl;
         $wText = $width - $wParafTotal;
         $f = ['name' => 'Calibri', 'size' => 8];
@@ -212,17 +212,20 @@ class SopDocxGenerator
         $rowH = [300, 300, 450];
         $top = max(1500, $blockH - $rowH[0] - $rowH[1] - $rowH[2] * count($jabatanList));
         $t->addRow($top, ['cantSplit' => true, 'exactHeight' => true]);
-        $c1 = $t->addCell($width, $this->hidden(['gridSpan' => 4, 'valign' => 'bottom']));
+        // Logo + nama instansi (2 baris) di atas; tabel Paraf Hirarki di bawahnya, kanan
+        $c1 = $t->addCell($width, $this->hidden(['gridSpan' => 4, 'valign' => 'top']));
         if ($logo) {
             $c1->addImage($logo, $logoStyle);
         }
         $c1->addText($line1, $font, $line1Style);
+        if ($line2 !== '') {
+            $c1->addText($line2, $font, $center);
+        }
 
         // Baris 2: sel kiri (sambungan nama instansi) digabung vertikal sepanjang tabel paraf
         $t->addRow($rowH[0], ['cantSplit' => true, 'exactHeight' => true]);
         $c = $t->addCell($wText, $this->hidden(['vMerge' => 'restart', 'valign' => 'top']));
-        // Indent kanan negatif: teks tetap rata tengah terhadap lebar penuh blok (di bawah baris 1), bukan hanya sel kiri
-        $c->addText($line2, $font, $center + ['indentation' => ['right' => -$wParafTotal]]);
+        $c->addText('', ['name' => 'Calibri', 'size' => 2], ['spaceAfter' => 0]);
         $this->p($t->addCell($wParafTotal, $this->cell(['gridSpan' => 3, 'valign' => 'center'])), 'Paraf Hirarki', $f + ['bold' => true], Jc::CENTER);
 
         $t->addRow($rowH[1], ['cantSplit' => true, 'exactHeight' => true]);
