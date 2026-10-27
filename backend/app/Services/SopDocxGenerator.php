@@ -171,7 +171,7 @@ class SopDocxGenerator
     private function parafHirarki($cell, string $instansi, int $width, array $jabatanList, ?string $logo = null, int $blockH = 3500): void
     {
         $jabatanList = array_values(array_filter(array_map('trim', $jabatanList), fn($v) => $v !== ''));
-        $font = ['name' => 'Calibri', 'size' => 10];
+        $font = ['name' => 'Calibri', 'size' => 12];
         $center = ['alignment' => Jc::CENTER, 'spaceAfter' => 0];
 
         // Proporsi asli logo (158 x 221 px = 0,715) agar tidak melebar/gepeng: 60 x 84 pt
@@ -194,12 +194,12 @@ class SopDocxGenerator
             [$line1, $line2] = [$m[1], $m[2]];
         }
 
-        $wJab = 2300;
-        $wParaf = 1000;
-        $wTgl = 1000;
+        $wJab = 1715;
+        $wParaf = 815;
+        $wTgl = 845;
         $wParafTotal = $wJab + $wParaf + $wTgl;
         $wText = $width - $wParafTotal;
-        $f = ['name' => 'Calibri', 'size' => 10];
+        $f = ['name' => 'Calibri', 'size' => 8];
 
         $t = $cell->addTable([
             'cellMargin' => 40,
@@ -209,7 +209,7 @@ class SopDocxGenerator
             'alignment'  => JcTable::END,
         ]);
 
-        $rowH = [320, 320, 600];
+        $rowH = [300, 300, 450];
         $top = max(1500, $blockH - $rowH[0] - $rowH[1] - $rowH[2] * count($jabatanList));
         $t->addRow($top, ['cantSplit' => true, 'exactHeight' => true]);
         $c1 = $t->addCell($width, $this->hidden(['gridSpan' => 4, 'valign' => 'bottom']));
@@ -222,7 +222,7 @@ class SopDocxGenerator
         $t->addRow($rowH[0], ['cantSplit' => true, 'exactHeight' => true]);
         $c = $t->addCell($wText, $this->hidden(['vMerge' => 'restart', 'valign' => 'top']));
         // Indent kanan negatif: teks tetap rata tengah terhadap lebar penuh blok (di bawah baris 1), bukan hanya sel kiri
-        $c->addText($line2, $font, $center + ['indentation' => ['right' => -(int) ($wParafTotal * 0.35)]]);
+        $c->addText($line2, $font, $center + ['indentation' => ['right' => -$wParafTotal]]);
         $this->p($t->addCell($wParafTotal, $this->cell(['gridSpan' => 3, 'valign' => 'center'])), 'Paraf Hirarki', $f + ['bold' => true], Jc::CENTER);
 
         $t->addRow($rowH[1], ['cantSplit' => true, 'exactHeight' => true]);
