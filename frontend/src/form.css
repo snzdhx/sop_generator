@@ -1,0 +1,63 @@
+/* ---------- Perapihan UX form SOP (diimpor oleh SopForm.jsx) ---------- */
+.container.narrow.form-page { max-width: 860px; }
+.form-page .savebar-in { max-width: 860px; align-items: center; }
+
+/* Navigasi bagian (menempel di atas) */
+.form-page .secnav { position: sticky; top: 0; z-index: 6; display: flex; gap: 4px; padding: 10px 0; margin: 0 0 16px; background: rgba(246, 245, 242, .94); backdrop-filter: blur(6px); border-bottom: 1px solid var(--line); overflow-x: auto; }
+.form-page .secnav button { display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; border-radius: 999px; border-color: transparent; background: transparent; color: var(--muted); font-size: 13px; white-space: nowrap; }
+.form-page .secnav button:hover { background: var(--accent-tint); color: var(--accent); }
+.form-page .secnav .n { display: grid; place-items: center; width: 18px; height: 18px; border-radius: 6px; background: var(--accent-tint); color: var(--accent); font-size: 11px; font-weight: 600; }
+
+.form-page .card { scroll-margin-top: 60px; }
+.form-page .card-head .card-actions { margin-left: auto; display: flex; gap: 6px; flex: none; }
+.form-page .card-actions button { padding: 5px 10px; font-size: 12px; color: var(--muted); }
+
+/* Grid isian */
+.form-page .g2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.form-page .g3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.form-page .g21 { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); }
+
+/* Validasi */
+.form-page .field.invalid input { border-color: var(--danger); }
+.form-page .field-error { color: var(--danger); font-size: 12px; }
+.form-page .error-box { background: var(--danger-tint); border: 1px solid #f1b8b2; border-radius: 8px; padding: 10px 12px; font: inherit; margin: 0 0 16px; }
+
+/* Editor daftar: textarea yang tumbuh otomatis */
+.form-page .autotext { display: block; resize: none; overflow: hidden; line-height: 1.45; }
+.form-page .list-row { align-items: flex-start; }
+.form-page .list-row .num { padding-top: 10px; }
+.form-page .list-row .use { padding-top: 10px; font-size: 12px; color: var(--muted); white-space: nowrap; }
+.form-page .list-row .icon-btn { margin-top: 1px; }
+.form-page .hint.keys { margin: 2px 0 6px; }
+
+/* Kartu langkah (akordeon) */
+.form-page .step { padding: 0; overflow: hidden; background: var(--surface); scroll-margin-top: 64px; transition: border-color .15s, box-shadow .15s; }
+.form-page .step.open { border-color: var(--accent-soft); box-shadow: 0 4px 14px rgba(11, 107, 93, .07); }
+.form-page .step-head { display: flex; align-items: center; gap: 2px; margin: 0; padding-right: 8px; }
+.form-page .step-toggle { flex: 1; min-width: 0; display: flex; align-items: center; gap: 12px; padding: 12px 8px 12px 14px; border: 0; border-radius: 0; background: transparent; text-align: left; }
+.form-page .step-toggle:hover { background: #faf9f7; }
+.form-page .step-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.form-page .step-meta { display: flex; align-items: center; gap: 8px; min-width: 0; font-size: 12px; color: var(--muted); }
+.form-page .step-meta > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.form-page .step-meta svg { flex: none; }
+.form-page .step-chev { flex: none; color: var(--muted); transition: transform .15s; }
+.form-page .step.open .step-chev { transform: rotate(180deg); }
+.form-page .badge { flex: none; border-radius: 999px; padding: 2px 8px; font-size: 11px; font-weight: 600; }
+.form-page .badge.warn { background: #fff4e0; color: #a15c07; }
+
+.form-page .step-body { padding: 4px 18px 18px; border-top: 1px solid var(--line); background: #fbfaf8; }
+.form-page .step-block { margin-top: 20px; }
+.form-page .step-block > h4 { margin: 0 0 10px; font-size: 12px; font-weight: 600; letter-spacing: .03em; text-transform: uppercase; color: var(--muted); }
+.form-page .step-block > .field:last-child,
+.form-page .step-block > .grid > .field:last-child { margin-bottom: 0; }
+.form-page .step-body > .step-block:first-child { margin-top: 16px; }
+.form-page .flow-grid { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 0 28px; align-items: start; }
+
+/* Bar simpan */
+.form-page .dirty-note { margin-right: auto; display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
+.form-page .dirty-note::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: #d98a10; }
+
+@media (max-width: 720px) {
+  .form-page .g2, .form-page .g3, .form-page .g21, .form-page .flow-grid { grid-template-columns: 1fr; }
+  .form-page .step-body { padding: 4px 12px 14px; }
+}
