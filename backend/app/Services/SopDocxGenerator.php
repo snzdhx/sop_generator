@@ -194,9 +194,9 @@ class SopDocxGenerator
             [$line1, $line2] = [$m[1], $m[2]];
         }
 
-        $wJab = 1750;
-        $wParaf = 800;
-        $wTgl = 825;
+        $wJab = 1950;
+        $wParaf = 850;
+        $wTgl = 850;
         $wParafTotal = $wJab + $wParaf + $wTgl;
         $wText = $width - $wParafTotal;
         $f = ['name' => 'Calibri', 'size' => 10];
