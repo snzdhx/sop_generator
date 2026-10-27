@@ -1,6 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
 import { api } from './api'
 import SopForm from './SopForm.jsx'
+import Icon from './Icon.jsx'
+
+const fmtDate = (v) => new Date(v).toLocaleString('id-ID', {
+  day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit',
+})
 
 export default function App() {
   const [sops, setSops] = useState([])
@@ -42,59 +47,77 @@ export default function App() {
 
   return (
     <div className="container">
-      <header className="bar">
-        <h1>Generator SOP</h1>
-        <button className="primary" onClick={() => setEditingId('new')}>+ SOP Baru</button>
+      <header className="page-head">
+        <div>
+          <h1>Generator SOP</h1>
+          <p className="sub">{sops.length} dokumen</p>
+        </div>
+        <button className="primary with-icon" onClick={() => setEditingId('new')}>
+          <Icon name="plus" size={16} /> SOP baru
+        </button>
       </header>
 
       {error && <p className="error">{error}</p>}
 
       <div className="filters">
-        <input
-          type="search"
-          placeholder="Cari nama atau nomor SOP..."
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-        />
+        <label className="search">
+          <Icon name="search" size={16} />
+          <input
+            type="search"
+            placeholder="Cari nama atau nomor SOP"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+          />
+        </label>
         <select value={sort} onChange={(e) => setSort(e.target.value)} aria-label="Urutkan">
-          <option value="tanggal-desc">Tanggal: terbaru</option>
-          <option value="tanggal-asc">Tanggal: terlama</option>
-          <option value="nama-asc">Nama: A → Z</option>
-          <option value="nama-desc">Nama: Z → A</option>
+          <option value="tanggal-desc">Terbaru diubah</option>
+          <option value="tanggal-asc">Terlama diubah</option>
+          <option value="nama-asc">Nama A–Z</option>
+          <option value="nama-desc">Nama Z–A</option>
         </select>
       </div>
 
-      <table className="list">
-        <colgroup>
-          <col style={{ width: '40%' }} />
-          <col style={{ width: '15%' }} />
-          <col style={{ width: '20%' }} />
-          <col style={{ width: '25%' }} />
-        </colgroup>
-        <thead>
-          <tr><th>Nama SOP</th><th>Nomor</th><th>Terakhir diubah</th><th></th></tr>
-        </thead>
-        <tbody>
-          {sops.length === 0 && (
-            <tr><td colSpan="4" className="muted">Belum ada SOP.</td></tr>
-          )}
-          {sops.length > 0 && shown.length === 0 && (
-            <tr><td colSpan="4" className="muted">Tidak ada SOP yang cocok dengan "{query}".</td></tr>
-          )}
-          {shown.map((s) => (
-            <tr key={s.id}>
-              <td>{s.nama_sop}</td>
-              <td>{s.nomor_sop || '-'}</td>
-              <td>{new Date(s.updated_at).toLocaleString('id-ID')}</td>
-              <td className="actions">
-                <a className="btn primary" href={api.downloadUrl(s.id)}>Unduh .docx</a>
-                <button onClick={() => setEditingId(s.id)}>Edit</button>
-                <button className="danger" onClick={() => remove(s.id)}>Hapus</button>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      <div className="panel">
+        <table className="list">
+          <colgroup>
+            <col />
+            <col className="c-nomor" />
+            <col className="c-tgl" />
+            <col className="c-aksi" />
+          </colgroup>
+          <thead>
+            <tr><th>Nama SOP</th><th className="c-nomor">Nomor</th><th className="c-tgl">Terakhir diubah</th><th><span className="sr-only">Aksi</span></th></tr>
+          </thead>
+          <tbody>
+            {sops.length === 0 && (
+              <tr><td colSpan="4" className="empty">Belum ada SOP. Klik “SOP baru” untuk membuat yang pertama.</td></tr>
+            )}
+            {sops.length > 0 && shown.length === 0 && (
+              <tr><td colSpan="4" className="empty">Tidak ada SOP yang cocok dengan “{query}”.</td></tr>
+            )}
+            {shown.map((s) => (
+              <tr key={s.id}>
+                <td className="name">{s.nama_sop}</td>
+                <td className="c-nomor">{s.nomor_sop || '–'}</td>
+                <td className="c-tgl">{fmtDate(s.updated_at)}</td>
+                <td>
+                  <div className="actions">
+                    <a className="icon-btn" href={api.downloadUrl(s.id)} title="Unduh .docx" aria-label="Unduh .docx">
+                      <Icon name="download" />
+                    </a>
+                    <button className="icon-btn" onClick={() => setEditingId(s.id)} title="Edit" aria-label="Edit">
+                      <Icon name="edit" />
+                    </button>
+                    <button className="icon-btn danger" onClick={() => remove(s.id)} title="Hapus" aria-label="Hapus">
+                      <Icon name="trash" />
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   )
 }
