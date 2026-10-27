@@ -61,3 +61,19 @@
   .form-page .g2, .form-page .g3, .form-page .g21, .form-page .flow-grid { grid-template-columns: 1fr; }
   .form-page .step-body { padding: 4px 12px 14px; }
 }
+
+/* ---------- Kerangka saat memuat ---------- */
+.form-page .sk { display: block; border-radius: 6px; background: linear-gradient(90deg, #ecebe6 25%, #f6f5f2 45%, #ecebe6 65%); background-size: 200% 100%; animation: sk-shimmer 1.3s ease-in-out infinite; }
+.form-page .sk-no { flex: none; width: 26px; height: 26px; border-radius: 7px; margin-top: 1px; }
+.form-page .sk-title { display: flex; flex-direction: column; gap: 8px; padding-top: 3px; }
+.form-page .sk-field { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }
+.form-page .sk-label { width: 110px; height: 11px; }
+.form-page .sk-input { height: 36px; border-radius: 8px; }
+.form-page .sk-input.tall { height: 64px; }
+.form-page .sk-step { display: flex; align-items: center; gap: 12px; padding: 14px; margin-bottom: 10px; border: 1px solid var(--line); border-radius: 10px; }
+.form-page .sk-dot { flex: none; width: 26px; height: 26px; border-radius: 50%; }
+.form-page .sk-sub { display: inline-flex; align-items: center; gap: 8px; }
+.form-page .sk-spin { width: 12px; height: 12px; border-radius: 50%; border: 2px solid var(--accent-soft); border-top-color: var(--accent); animation: sk-rot .8s linear infinite; }
+@keyframes sk-shimmer { from { background-position: 100% 0; } to { background-position: -100% 0; } }
+@keyframes sk-rot { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .form-page .sk, .form-page .sk-spin { animation: none; } }

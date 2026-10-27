@@ -336,6 +336,64 @@ function LanjutEditor({ steps, i, onChange }) {
   )
 }
 
+// Tampilan saat data SOP dimuat: kerangka form dengan efek shimmer
+function FormSkeleton({ onBack }) {
+  const Field = ({ w = '100%', tall }) => (
+    <div className="sk-field">
+      <span className="sk sk-label" />
+      <span className={`sk sk-input${tall ? ' tall' : ''}`} style={{ width: w }} />
+    </div>
+  )
+  return (
+    <div className="container narrow form-page" role="status" aria-live="polite" aria-busy="true">
+      <header className="form-head">
+        <button type="button" className="icon-btn" onClick={onBack} title="Kembali" aria-label="Kembali">
+          <Icon name="back" />
+        </button>
+        <div>
+          <h1>Edit SOP</h1>
+          <p className="sub sk-sub"><span className="sk-spin" />Memuat data SOP…</p>
+        </div>
+      </header>
+
+      <section className="card">
+        <div className="card-head">
+          <span className="sk sk-no" />
+          <div className="sk-title"><span className="sk" style={{ width: 150, height: 16 }} /><span className="sk" style={{ width: 230, height: 12 }} /></div>
+        </div>
+        <Field />
+        <div className="grid g21"><Field /><Field /></div>
+        <div className="grid g3"><Field /><Field /><Field /></div>
+      </section>
+
+      <section className="card">
+        <div className="card-head">
+          <span className="sk sk-no" />
+          <div className="sk-title"><span className="sk" style={{ width: 170, height: 16 }} /></div>
+        </div>
+        <Field tall />
+        <Field tall />
+      </section>
+
+      <section className="card">
+        <div className="card-head">
+          <span className="sk sk-no" />
+          <div className="sk-title"><span className="sk" style={{ width: 190, height: 16 }} /></div>
+        </div>
+        {[0, 1, 2].map((k) => (
+          <div className="sk-step" key={k}>
+            <span className="sk sk-dot" />
+            <div className="sk-title" style={{ flex: 1 }}>
+              <span className="sk" style={{ width: `${70 - k * 10}%`, height: 14 }} />
+              <span className="sk" style={{ width: `${40 - k * 5}%`, height: 11 }} />
+            </div>
+          </div>
+        ))}
+      </section>
+    </div>
+  )
+}
+
 const scrollToId = (id, block = 'start') => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block })
 
 export default function SopForm({ id, onClose }) {
@@ -508,7 +566,7 @@ export default function SopForm({ id, onClose }) {
     onClose()
   }
 
-  if (loading) return <div className="container narrow form-page"><p className="muted">Memuat…</p></div>
+  if (loading) return <FormSkeleton onBack={onClose} />
 
   const totalWarn = f.steps.reduce((n, _, i) => n + warningsOf(f.steps, i).length, 0)
   const allOpen = f.steps.length > 0 && f.steps.every((s) => open.has(s._id))
