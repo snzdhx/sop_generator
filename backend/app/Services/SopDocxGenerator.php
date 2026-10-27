@@ -194,9 +194,9 @@ class SopDocxGenerator
             [$line1, $line2] = [$m[1], $m[2]];
         }
 
-        $wJab = 1950;
-        $wParaf = 850;
-        $wTgl = 850;
+        $wJab = 2300;
+        $wParaf = 1000;
+        $wTgl = 1000;
         $wParafTotal = $wJab + $wParaf + $wTgl;
         $wText = $width - $wParafTotal;
         $f = ['name' => 'Calibri', 'size' => 10];
@@ -222,7 +222,7 @@ class SopDocxGenerator
         $t->addRow($rowH[0], ['cantSplit' => true, 'exactHeight' => true]);
         $c = $t->addCell($wText, $this->hidden(['vMerge' => 'restart', 'valign' => 'top']));
         // Indent kanan negatif: teks tetap rata tengah terhadap lebar penuh blok (di bawah baris 1), bukan hanya sel kiri
-        $c->addText($line2, $font, $center + ['indentation' => ['right' => -$wParafTotal]]);
+        $c->addText($line2, $font, $center + ['indentation' => ['right' => -(int) ($wParafTotal * 0.35)]]);
         $this->p($t->addCell($wParafTotal, $this->cell(['gridSpan' => 3, 'valign' => 'center'])), 'Paraf Hirarki', $f + ['bold' => true], Jc::CENTER);
 
         $t->addRow($rowH[1], ['cantSplit' => true, 'exactHeight' => true]);
