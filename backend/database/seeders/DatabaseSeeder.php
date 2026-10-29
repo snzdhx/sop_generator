@@ -21,5 +21,8 @@ class DatabaseSeeder extends Seeder
             'name' => 'Test User',
             'email' => 'test@example.com',
         ]);
+
+        // Contoh data: SOP Pengelolaan CCTV BKPSDM
+        $this->call(SopSeeder::class);
     }
 }
